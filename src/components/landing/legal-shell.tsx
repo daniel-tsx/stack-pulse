@@ -45,6 +45,18 @@ export function LegalShell({
       <footer className="border-t border-line mt-16">
         <div className="mx-auto max-w-3xl px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px] text-fade">
           <Logo size="sm" />
+          <p className="tracking-widest">
+            {'From the '}
+            <a
+              href="https://eastbase.studio"
+              target="_blank"
+              rel="noopener"
+              className="rounded-xs text-lime outline-none transition-colors hover:text-ink focus-visible:ring-1 focus-visible:ring-lime"
+            >
+              Eastbase
+            </a>
+            {' studio'}
+          </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/privacy" className="hover:text-ink transition-colors">
               privacy

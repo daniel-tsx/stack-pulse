@@ -418,17 +418,31 @@ export default async function LandingPage() {
         <footer className="border-t border-line">
           <div className="mx-auto max-w-7xl px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px] text-fade">
             <Logo size="sm" />
-            <p className="tracking-widest">
-              {'// built for developers, by a '}
-              <a
-                href="https://daniel-tsx.dev"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-lime hover:text-ink transition-colors"
-              >
-                developer
-              </a>
-            </p>
+            <div className="flex flex-col items-center gap-1.5 text-center">
+              <p className="tracking-widest">
+                {'// built for developers, by a '}
+                <a
+                  href="https://daniel-tsx.dev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-lime hover:text-ink transition-colors"
+                >
+                  developer
+                </a>
+              </p>
+              <p className="tracking-widest">
+                {'From the '}
+                <a
+                  href="https://eastbase.studio"
+                  target="_blank"
+                  rel="noopener"
+                  className="rounded-xs text-lime outline-none transition-colors hover:text-ink focus-visible:ring-1 focus-visible:ring-lime"
+                >
+                  Eastbase
+                </a>
+                {' studio'}
+              </p>
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link href="/status" className="hover:text-ink transition-colors">
                 status
