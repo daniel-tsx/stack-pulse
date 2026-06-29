@@ -119,6 +119,14 @@ Use docs as durable project memory, but verify against code before acting.
 - Every new or edited doc should make its status clear: `current`, `planned`, `shipped`, `historical`, or `superseded`.
 - Prefer one current source-of-truth doc per feature. Move completed plans and stale reviews to `docs/archive/` instead of leaving them beside current operational docs.
 
+## Reviewing changes
+
+When reviewing a PR, diff, branch, or an agent's changes in this repo — and before
+declaring any non-trivial change done — apply the `eastbase-review-pr` skill as an overlay
+on your normal review: check Eastbase product, auth, billing, AI-cost, data-safety, and UX
+risk, not just code cleanliness. Read it via the Skill tool. It is a review overlay only —
+it does not change how you implement.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
