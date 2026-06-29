@@ -1,0 +1,32 @@
+<svg width="170" height="32" viewBox="0 0 170 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="StackPulse">
+  <style>
+    .bar { transform-box: fill-box; transform-origin: 50% 100%; animation: rise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+    .b2 { animation-delay: 0.08s; }
+    .b3 { animation-delay: 0.16s; }
+    .b4 { animation-delay: 0.24s; }
+    .b5 { animation-delay: 0.32s; }
+    .ping { transform-box: fill-box; transform-origin: center; animation: ping 0.9s ease-out 0.5s both; }
+    .dot { transform-box: fill-box; transform-origin: center; animation: breathe 3s ease-in-out 1.6s infinite; }
+    .word { opacity: 0; animation: fade 0.5s ease-out 0.45s both; }
+    @keyframes rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    @keyframes ping { from { transform: scale(1); opacity: 0.5; } to { transform: scale(2.4); opacity: 0; } }
+    @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.82; } }
+    @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) {
+      .bar, .ping, .dot, .word { animation: none !important; }
+      .bar { transform: none; }
+      .ping { opacity: 0; }
+      .word { opacity: 1; }
+    }
+  </style>
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#0d0d10" stroke="#26262e"/>
+  <line x1="6" y1="24" x2="26" y2="24" stroke="#a3e635" stroke-width="1" stroke-opacity="0.34" stroke-linecap="round"/>
+  <line class="bar b1" x1="6" y1="24" x2="6" y2="16.3" stroke="#a3e635" stroke-width="2.7" stroke-linecap="round"/>
+  <line class="bar b2" x1="11" y1="24" x2="11" y2="12.1" stroke="#a3e635" stroke-width="2.7" stroke-linecap="round"/>
+  <line class="bar b3" x1="16" y1="24" x2="16" y2="10" stroke="#a3e635" stroke-width="2.7" stroke-linecap="round"/>
+  <line class="bar b4" x1="21" y1="24" x2="21" y2="14.2" stroke="#a3e635" stroke-width="2.7" stroke-linecap="round"/>
+  <line class="bar b5" x1="26" y1="24" x2="26" y2="17.7" stroke="#a3e635" stroke-width="2.7" stroke-linecap="round"/>
+  <circle class="ping" cx="16" cy="5.35" r="2.3" fill="#a3e635"/>
+  <circle class="dot" cx="16" cy="5.35" r="2.3" fill="#a3e635"/>
+  <text class="word" x="44" y="22" font-family="'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="600" letter-spacing="-0.4" fill="#e8e8ec">stack<tspan fill="#a3e635">.</tspan>pulse</text>
+</svg>

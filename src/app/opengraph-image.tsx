@@ -21,30 +21,17 @@ export default async function OpengraphImage() {
     >
       {/* Top-left logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <svg
-          width="48"
-          height="48"
-          viewBox="0 0 32 32"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <rect width="32" height="32" rx="6" fill="#0d0d10" />
+        <svg width="48" height="48" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="7" fill="#0d0d10" />
+          <line x1="6" y1="24" x2="26" y2="24" stroke="#40561c" strokeWidth="1" strokeLinecap="round" />
           <path
-            d="M 9 9.5 L 14.5 16 L 9 22.5"
+            d="M6 24 L6 16.3 M11 24 L11 12.1 M16 24 L16 10 M21 24 L21 14.2 M26 24 L26 17.7"
             fill="none"
             stroke="#a3e635"
-            strokeWidth="2.5"
+            strokeWidth="2.7"
             strokeLinecap="round"
-            strokeLinejoin="round"
           />
-          <path
-            d="M 16.5 16 L 19.5 16 L 21 10 L 22.5 16 L 25 16"
-            fill="none"
-            stroke="#a3e635"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <circle cx="25" cy="16" r="2" fill="#a3e635" />
+          <circle cx="16" cy="5.35" r="2.3" fill="#a3e635" />
         </svg>
         <div style={{ display: 'flex', fontSize: '24px', fontWeight: 600 }}>
           <span>stack</span>

@@ -1,0 +1,9 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="StackPulse">
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#0d0d10" stroke="#26262e"/>
+  <!-- feed line -->
+  <line x1="6" y1="24" x2="26" y2="24" stroke="#a3e635" stroke-width="1" stroke-opacity="0.34" stroke-linecap="round"/>
+  <!-- five release beats: peaks 0.55 / 0.85 / 1 / 0.7 / 0.45 -->
+  <path d="M6 24 L6 16.3 M11 24 L11 12.1 M16 24 L16 10 M21 24 L21 14.2 M26 24 L26 17.7" fill="none" stroke="#a3e635" stroke-width="2.7" stroke-linecap="round"/>
+  <!-- flagged / breaking release -->
+  <circle cx="16" cy="5.35" r="2.3" fill="#a3e635"/>
+</svg>

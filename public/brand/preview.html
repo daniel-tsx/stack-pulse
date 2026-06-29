@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StackPulse — brand system</title>
+    <link rel="icon" href="/brand/favicon-32x32.png" />
+    <style>
+      :root {
+        --void: #08080a;
+        --shade: #0d0d10;
+        --lift: #131318;
+        --panel: #16161c;
+        --ink: #e8e8ec;
+        --dust: #9b9ba1;
+        --fade: #5a5a62;
+        --mute: #3a3a42;
+        --line: #1c1c22;
+        --ruling: #26262e;
+        --lime: #a3e635;
+        --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--void);
+        color: var(--ink);
+        font-family: var(--mono);
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+      .kicker { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fade); }
+      .kicker b { color: var(--lime); font-weight: 600; }
+      h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 10px 0 6px; }
+      h1 .dot { color: var(--lime); }
+      .sub { color: var(--dust); font-size: 14px; margin: 0 0 40px; max-width: 60ch; line-height: 1.6; }
+      h2 { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fade); margin: 40px 0 14px; }
+      h2::before { content: '§ '; color: var(--lime); }
+      .frame { background: var(--shade); border: 1px solid var(--line); border-radius: 8px; }
+      .grid { display: grid; gap: 16px; }
+      .cols-2 { grid-template-columns: 1fr 1fr; }
+      @media (max-width: 720px) { .cols-2 { grid-template-columns: 1fr; } }
+
+      /* navbar mock */
+      .nav { display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 18px; }
+      .nav .right { display: flex; gap: 16px; align-items: center; font-size: 12px; color: var(--dust); }
+      .lockup { display: inline-flex; align-items: center; gap: 8px; }
+      .lockup .word { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+      .lockup .word .dot { color: var(--lime); }
+      .cta { border: 1px solid var(--ruling); background: var(--lift); border-radius: 6px; padding: 6px 12px; color: var(--ink); font-size: 12px; }
+      .cta b { color: var(--lime); font-weight: 600; }
+
+      .row { display: flex; align-items: flex-end; gap: 28px; padding: 24px; flex-wrap: wrap; }
+      .spec { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+      .spec span { font-size: 11px; color: var(--fade); }
+
+      /* browser tab mock */
+      .tabbar { display: flex; gap: 6px; padding: 12px 12px 0; align-items: flex-end; }
+      .tab { display: inline-flex; align-items: center; gap: 8px; background: var(--void); border: 1px solid var(--line); border-bottom: none; border-radius: 8px 8px 0 0; padding: 9px 14px; font-size: 12px; color: var(--dust); }
+      .tab.alt { background: var(--shade); color: var(--fade); }
+
+      /* sidebar mock */
+      .shell { display: grid; grid-template-columns: 56px 1fr; height: 200px; overflow: hidden; }
+      .side { background: var(--void); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 14px 0; gap: 18px; }
+      .side .ico { width: 18px; height: 18px; border-radius: 5px; background: var(--lift); }
+      .side .ico.on { background: transparent; }
+      .body { padding: 18px; }
+      .body .bar { height: 10px; border-radius: 4px; background: var(--lift); margin-bottom: 10px; }
+      .body .bar.s { width: 40%; } .body .bar.m { width: 70%; } .body .bar.l { width: 90%; }
+
+      /* light surface */
+      .light { background: #f4f4f5; border-radius: 8px; padding: 24px; display: flex; align-items: center; }
+      .light .word { color: #18181b; font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+      .light .word .dot { color: #65a30d; }
+
+      .note { font-size: 12px; color: var(--fade); margin-top: 10px; line-height: 1.6; }
+      button.replay { background: var(--lime); color: var(--void); border: none; border-radius: 6px; padding: 8px 14px; font-family: var(--mono); font-weight: 600; font-size: 12px; cursor: pointer; }
+      img.logo { display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="kicker">stackpulse <b>/</b> brand system</div>
+      <h1>beat stack<span class="dot">.</span></h1>
+      <p class="sub">
+        The PulseLoader frozen into a mark — five release beats rising off the feed line in one
+        asymmetric heartbeat, the tallest flagged by the live beat that rhymes with the wordmark's
+        lime full stop. Static everywhere; a one-shot reveal on high-visibility surfaces.
+      </p>
+
+      <h2>navbar — animated vs static</h2>
+      <div class="grid cols-2">
+        <div class="frame">
+          <div class="nav">
+            <span class="lockup">
+              <img class="logo" id="navAnim" src="/brand/logo-mark-animated.svg" width="24" height="24" alt="" />
+              <span class="word">stack<span class="dot">.</span>pulse</span>
+            </span>
+            <span class="right"><span>stacks</span><span class="cta"><b>$</b> continue with github</span></span>
+          </div>
+        </div>
+        <div class="frame">
+          <div class="nav">
+            <span class="lockup">
+              <img class="logo" src="/brand/logo-mark.svg" width="24" height="24" alt="" />
+              <span class="word">stack<span class="dot">.</span>pulse</span>
+            </span>
+            <span class="right"><span>stacks</span><span class="cta"><b>$</b> continue with github</span></span>
+          </div>
+        </div>
+      </div>
+      <p class="note">
+        Left: animated (reveal + single ping, then calm). Right: static.
+        <button class="replay" onclick="replay()">↻ replay reveal</button>
+      </p>
+
+      <h2>mark at size — readable from 16px up</h2>
+      <div class="frame row">
+        <span class="spec"><img class="logo" src="/brand/logo-mark.svg" width="16" height="16" alt="" /><span>16 · favicon</span></span>
+        <span class="spec"><img class="logo" src="/brand/logo-mark.svg" width="22" height="22" alt="" /><span>22 · navbar</span></span>
+        <span class="spec"><img class="logo" src="/brand/logo-mark.svg" width="32" height="32" alt="" /><span>32</span></span>
+        <span class="spec"><img class="logo" src="/brand/logo-mark.svg" width="48" height="48" alt="" /><span>48</span></span>
+        <span class="spec"><img class="logo" src="/brand/logo-mark.svg" width="64" height="64" alt="" /><span>64</span></span>
+      </div>
+
+      <h2>browser tab feel</h2>
+      <div class="frame">
+        <div class="tabbar">
+          <span class="tab"><img class="logo" src="/brand/favicon-32x32.png" width="16" height="16" alt="" /> stack.pulse — your feed</span>
+          <span class="tab alt"><img class="logo" src="/brand/favicon-16x16.png" width="16" height="16" alt="" /> github.com</span>
+        </div>
+      </div>
+
+      <h2>app shell — sidebar</h2>
+      <div class="frame shell">
+        <div class="side">
+          <img class="logo" src="/brand/logo-mark.svg" width="22" height="22" alt="" />
+          <div class="ico on"></div><div class="ico"></div><div class="ico"></div>
+        </div>
+        <div class="body">
+          <div class="bar l"></div><div class="bar m"></div><div class="bar s"></div><div class="bar m"></div>
+        </div>
+      </div>
+
+      <h2>full lockup — dark & light surfaces</h2>
+      <div class="grid cols-2">
+        <div class="frame" style="padding:24px; display:flex; align-items:center;">
+          <img class="logo" src="/brand/logo.svg" height="28" alt="StackPulse" />
+        </div>
+        <div class="light">
+          <img class="logo" src="/brand/logo-light.svg" height="28" alt="StackPulse" />
+        </div>
+      </div>
+
+      <h2>reduced motion</h2>
+      <p class="note">
+        Every animated asset carries an <code>@media (prefers-reduced-motion: reduce)</code> rule that
+        renders the complete static mark — beats up, no ping, no breath. Toggle "Reduce motion" in your
+        OS to verify: the marks above hold perfectly still and lose nothing.
+      </p>
+    </div>
+
+    <script>
+      function replay() {
+        const img = document.getElementById('navAnim')
+        const src = img.getAttribute('src')
+        img.setAttribute('src', '')
+        // force reload to retrigger the SVG's load-time animation
+        requestAnimationFrame(() => img.setAttribute('src', src + '?t=' + Date.now()))
+      }
+    </script>
+  </body>
+</html>

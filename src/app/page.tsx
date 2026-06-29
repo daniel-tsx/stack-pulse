@@ -172,7 +172,7 @@ export default async function LandingPage() {
 
       <header className="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between relative z-20 border-b border-line/60">
         <Link href="/" className="hover:opacity-80 transition-opacity">
-          <Logo size="md" />
+          <Logo size="md" animated />
         </Link>
         <nav className="flex items-center gap-2 font-mono text-[12px]">
           <span className="hidden sm:inline text-fade">v0.1.0</span>

@@ -29,7 +29,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md animate-fade-up">
         <div className="mb-6 flex items-center justify-between">
           <Link href="/" className="hover:opacity-80 transition-opacity">
-            <Logo size="sm" />
+            <Logo size="sm" animated />
           </Link>
           <Link
             href="/"

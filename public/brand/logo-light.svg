@@ -1,0 +1,9 @@
+<svg width="170" height="32" viewBox="0 0 170 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="StackPulse">
+  <!-- For light surfaces: the dark squircle keeps the signature lime-on-dark mark intact -->
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#0d0d10" stroke="#26262e"/>
+  <line x1="6" y1="24" x2="26" y2="24" stroke="#a3e635" stroke-width="1" stroke-opacity="0.34" stroke-linecap="round"/>
+  <path d="M6 24 L6 16.3 M11 24 L11 12.1 M16 24 L16 10 M21 24 L21 14.2 M26 24 L26 17.7" fill="none" stroke="#a3e635" stroke-width="2.7" stroke-linecap="round"/>
+  <circle cx="16" cy="5.35" r="2.3" fill="#a3e635"/>
+  <!-- wordmark in near-black for light backgrounds -->
+  <text x="44" y="22" font-family="'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="600" letter-spacing="-0.4" fill="#18181b">stack<tspan fill="#65a30d">.</tspan>pulse</text>
+</svg>
