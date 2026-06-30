@@ -127,6 +127,15 @@ on your normal review: check Eastbase product, auth, billing, AI-cost, data-safe
 risk, not just code cleanliness. Read it via the Skill tool. It is a review overlay only —
 it does not change how you implement.
 
+## Launch readiness
+
+When preparing to launch, publish, announce, sell, or meaningfully update this product —
+and before you call it ready to ship — apply the `eastbase-launch-check` skill as a pre-launch
+readiness gate: check the core flow, auth, billing/entitlement, env/deploy, public claims,
+and AI cost, and return a launch verdict with blockers vs follow-ups, not just a thumbs-up.
+Read it via the Skill tool. It is a readiness gate, not a security or legal audit — run it
+only when a launch / go-live check is wanted, not for ordinary implementation.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
