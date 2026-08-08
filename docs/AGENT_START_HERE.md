@@ -44,7 +44,7 @@ Trust code over docs when they disagree. Surface drift; update docs only when th
 | Layer | Choice |
 |-------|--------|
 | Framework | Next.js 16 App Router, React 19 |
-| Language | TypeScript 6 |
+| Language | TypeScript 7 (`tsc`). TypeScript 6 stays installed as `tsc6` because typescript-eslint still needs the TS 6 compiler API — see [operations/typescript.md](./operations/typescript.md) |
 | Styling | Tailwind CSS v4, shadcn (`base-nova`), hugeicons-react, motion |
 | Auth | `better-auth` + `@better-auth/infra` dash plugin (optional) |
 | Database | Neon Postgres (`@neondatabase/serverless`) + Drizzle ORM |
@@ -117,7 +117,8 @@ When editing a doc, set status in the first lines. Move completed plans to `docs
 ## Verification commands
 
 ```bash
-pnpm exec tsc --noEmit
+pnpm typecheck        # TypeScript 7
+pnpm typecheck:ts6    # TypeScript 6, for comparing during the TS 7 migration
 pnpm lint
 pnpm build
 git diff --check
@@ -172,7 +173,7 @@ See [operations/environment-variables.md](./operations/environment-variables.md)
 ## Before ending a task
 
 - [ ] Changed behavior matches code paths you touched
-- [ ] `pnpm exec tsc --noEmit && pnpm lint` pass (or note why not run)
+- [ ] `pnpm typecheck && pnpm lint` pass (or note why not run)
 - [ ] Docs updated if routes/APIs/env/schema/user-visible behavior changed
 - [ ] Doc status + paths correct; no broken relative links in edited docs
 - [ ] UI changes follow [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) (tokens, frames, copy voice)

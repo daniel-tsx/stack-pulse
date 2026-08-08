@@ -140,7 +140,7 @@ drizzle/            versioned migrations
 
 This is a side project. Issues and PRs are welcome — particularly for new stacks to add to the seed registry, summarisation improvements, or accessibility fixes.
 
-Keep changes small and focused. Run `pnpm exec tsc --noEmit && pnpm lint` before pushing.
+Keep changes small and focused. Run `pnpm typecheck && pnpm lint` before pushing.
 
 ## Licence
 

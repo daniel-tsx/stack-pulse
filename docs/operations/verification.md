@@ -5,7 +5,8 @@
 ## Automated (no test suite)
 
 ```bash
-pnpm exec tsc --noEmit
+pnpm typecheck        # TypeScript 7 (`tsc`)
+pnpm typecheck:ts6    # TypeScript 6 (`tsc6`) — same tsconfig, for migration comparison
 pnpm lint
 pnpm build
 ```

@@ -8,4 +8,5 @@ allowBuilds:
 minimumReleaseAge: 0
 overrides:
   esbuild: ^0.25.12
-  postcss: ^8.5.14
+  # >=8.5.23 carries the fix for the source-map path traversal advisories.
+  postcss: ^8.5.26

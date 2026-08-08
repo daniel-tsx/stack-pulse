@@ -43,7 +43,7 @@ App: http://localhost:3000
 ## Pre-push checks (from README)
 
 ```bash
-pnpm exec tsc --noEmit && pnpm lint
+pnpm typecheck && pnpm lint
 ```
 
 No test runner configured.
