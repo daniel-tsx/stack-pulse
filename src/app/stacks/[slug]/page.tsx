@@ -36,8 +36,6 @@ const importanceTone: Record<string, string> = {
 const signalFilters = ['all', 'breaking', 'deprecation', 'migration', 'security'] as const
 type SignalFilter = (typeof signalFilters)[number]
 
-export const revalidate = 3600
-
 export async function generateStaticParams() {
   const stacks = await getPublicStackSlugs()
   return stacks.map((stack) => ({ slug: stack.slug }))

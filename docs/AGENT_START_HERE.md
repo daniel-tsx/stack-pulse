@@ -1,7 +1,7 @@
 # Agent start here
 
 **Status:** current  
-**Last verified:** 2026-05-31 (code + config in repo)
+**Last verified:** 2026-08-12 (code + config in repo)
 
 StackPulse is a Next.js app that tracks GitHub releases for developer stacks, AI-summarises them via OpenRouter, and shows a filterable feed. Non-profit, self-hostable, no billing.
 
@@ -83,6 +83,7 @@ Old Drizzle snapshots (`drizzle/meta/0000_snapshot.json`, `0001`) still mention 
 | Env vars | `.env.example` | [operations/environment-variables.md](./operations/environment-variables.md) | Canonical list |
 | Deploy & cron | `vercel.json`, README | [operations/deployment.md](./operations/deployment.md) | Vercel Cron auth via `CRON_SECRET` |
 | Local dev | `package.json` scripts | [operations/local-development.md](./operations/local-development.md) | No test suite in repo |
+| Navigation + caching | `next.config.ts`, `src/app/**/loading.tsx`, cached data helpers | [operations/navigation-and-caching.md](./operations/navigation-and-caching.md) | Cache Components + Partial Prefetching |
 | Digest | `src/lib/digest.ts`, `digestSubscribers` table, `subscribeToDigest` | [features/digest-signup.md](./features/digest-signup.md) | Capture + weekly Resend send + unsubscribe |
 | Design system + architecture | `globals.css`, `src/components/**` | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) | Tokens, layout, copy voice, badges |
 

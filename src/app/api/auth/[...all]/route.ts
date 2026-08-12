@@ -1,7 +1,9 @@
 import { getAuth } from '@/lib/auth'
 import { toNextJsHandler } from 'better-auth/next-js'
+import { connection } from 'next/server'
 
 export async function GET(request: Request) {
+  await connection()
   return toNextJsHandler(getAuth()).GET(request)
 }
 

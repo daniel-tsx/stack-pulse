@@ -25,7 +25,7 @@ const handler = createMcpHandler(
         title: 'List tracked stacks',
         description:
           'List every stack in the StackPulse registry with slug, category, GitHub repo, and release stats. Use the slug with the other tools.',
-        inputSchema: {},
+        inputSchema: z.object({}),
       },
       async () => {
         const index = await getPublicStackIndex()
@@ -50,10 +50,10 @@ const handler = createMcpHandler(
         title: 'Get recent releases for a stack',
         description:
           'Recent releases for a stack slug with AI-distilled summaries: breaking changes, security notes, deprecations, migration steps, importance, and source links.',
-        inputSchema: {
+        inputSchema: z.object({
           stack: z.string().min(1).max(100).describe('Stack slug, e.g. "nextjs" or "react"'),
           limit: z.number().int().min(1).max(20).default(10).describe('Max releases to return'),
-        },
+        }),
       },
       async ({ stack, limit }) => {
         const data = await getPublicStackPage(stack.toLowerCase())
@@ -89,14 +89,14 @@ const handler = createMcpHandler(
         title: 'Plan an upgrade between versions',
         description:
           'Aggregate every stored breaking change, security note, deprecation, and migration step for a stack between a current version and the latest release, in upgrade order.',
-        inputSchema: {
+        inputSchema: z.object({
           stack: z.string().min(1).max(100).describe('Stack slug, e.g. "nextjs"'),
           from_version: z
             .string()
             .min(1)
             .max(80)
             .describe('The version currently in use, e.g. "14.2.0"'),
-        },
+        }),
       },
       async ({ stack, from_version }) => {
         const plan = await getUpgradePlan(stack.toLowerCase(), from_version)
@@ -136,10 +136,10 @@ const handler = createMcpHandler(
         title: 'Search releases',
         description:
           'Full-text search across stored release summaries, titles, versions, deprecations, and migration notes for every tracked stack.',
-        inputSchema: {
+        inputSchema: z.object({
           query: z.string().min(2).max(200).describe('Search text, e.g. "app router" or "CVE"'),
           limit: z.number().int().min(1).max(30).default(10).describe('Max results'),
-        },
+        }),
       },
       async ({ query, limit }) => {
         const page = await getReleaseFeedPage({
@@ -166,11 +166,6 @@ const handler = createMcpHandler(
         })
       },
     )
-  },
-  {},
-  {
-    basePath: '/api/mcp',
-    maxDuration: 60,
   },
 )
 

@@ -5,11 +5,9 @@ import { Logo } from '@/components/logo'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PulseLoader } from '@/components/ui/pulse-loader'
 
-// `/stacks/[slug]` reads `searchParams` for the signal filter, which makes the route
-// dynamic — so a `<Link>` has no static shell to prefetch and clicks used to sit on the
-// previous page until the server responded. This loading boundary is what `<Link>`
-// prefetches instead, so the URL and this shell land immediately on click.
-// Chrome and the section headings match the real page so only the data regions animate.
+// `params` and `searchParams` are URL-specific, so Partial Prefetching shares this App
+// Shell across every stack link instead of rendering every slug ahead of time. Chrome and
+// section headings match the real page so only the URL-dependent data regions animate.
 export default function StackPageLoading() {
   return (
     <div className="relative flex-1">

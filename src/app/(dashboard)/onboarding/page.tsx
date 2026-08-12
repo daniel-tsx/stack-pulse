@@ -6,23 +6,36 @@ import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight01Icon } from 'hugeicons-react'
+import { Suspense } from 'react'
 import { Logo } from '@/components/logo'
 import { TechSelector } from '@/components/tech-selector'
 import { UserMenu } from '@/components/dashboard/user-menu'
+import OnboardingLoading from './loading'
 
-export default async function OnboardingPage() {
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<OnboardingLoading />}>
+      <OnboardingContent />
+    </Suspense>
+  )
+}
+
+async function OnboardingContent() {
+  const requestHeaders = await headers()
   const session = await getAuth().api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   })
 
   if (!session) redirect('/sign-in')
 
   const db = getDb()
-  const allTechs = await db.select().from(technologies)
-  const userPrefs = await db
-    .select({ techId: userTechPreferences.techId })
-    .from(userTechPreferences)
-    .where(eq(userTechPreferences.userId, session.user.id))
+  const [allTechs, userPrefs] = await Promise.all([
+    db.select().from(technologies),
+    db
+      .select({ techId: userTechPreferences.techId })
+      .from(userTechPreferences)
+      .where(eq(userTechPreferences.userId, session.user.id)),
+  ])
 
   return (
     <div className="flex-1">

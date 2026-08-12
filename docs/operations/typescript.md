@@ -1,7 +1,7 @@
 # TypeScript
 
 **Status:** current
-**Last verified:** 2026-08-08
+**Last verified:** 2026-08-12
 
 The repo type-checks with **TypeScript 7** and keeps **TypeScript 6** installed alongside it.
 That is deliberate — do not "clean up" one of them.
@@ -34,7 +34,7 @@ So the repo follows Microsoft's documented side-by-side arrangement:
 | Editor (`node_modules/typescript/lib`)      | TypeScript 6                 |
 | `next build` type check                     | TypeScript 6 API — see below |
 
-Both compilers read the same `tsconfig.json` and check the same 82-file program.
+Both compilers read the same `tsconfig.json` and check the same project program.
 
 ## `experimental.useTypeScriptCli: false`
 

@@ -40,7 +40,7 @@ StackPulse is a non-profit, open-source service for developers. It watches a lis
 
 ### Prerequisites
 
-- Node 20+
+- Node 20.9+
 - pnpm (`npm i -g pnpm`)
 - A Neon Postgres database (free tier is fine)
 - A GitHub OAuth app — callback URL `http://localhost:3000/api/auth/callback/github`

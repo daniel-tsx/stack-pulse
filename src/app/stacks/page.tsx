@@ -8,8 +8,6 @@ import { getPublicStackIndex, type PublicStackIndexItem } from '@/lib/public-sta
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-export const revalidate = 3600
-
 export const metadata: Metadata = {
   title: 'Framework release notes, breaking changes, and upgrade notes',
   description:

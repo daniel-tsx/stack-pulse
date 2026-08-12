@@ -1,13 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { cache } from 'react'
 import { ArrowLeft01Icon } from 'hugeicons-react'
 
 import { Logo } from '@/components/logo'
 import { getUpgradePlan, type UpgradePlanItem } from '@/lib/upgrade-plan'
-
-const loadPlan = cache(getUpgradePlan)
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -23,7 +20,7 @@ function readFromParam(query: Record<string, string | string[] | undefined> | un
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params
   const from = readFromParam(await searchParams)
-  const plan = await loadPlan(slug, from)
+  const plan = await getUpgradePlan(slug, from)
 
   if (!plan) {
     return { title: 'Stack not found', robots: { index: false, follow: false } }
@@ -45,7 +42,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function UpgradePlannerPage({ params, searchParams }: Props) {
   const { slug } = await params
   const from = readFromParam(await searchParams)
-  const plan = await loadPlan(slug, from)
+  const plan = await getUpgradePlan(slug, from)
 
   if (!plan) notFound()
 

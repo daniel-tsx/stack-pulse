@@ -12,6 +12,10 @@ export const metadata: Metadata = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+// This email-only route is keyed by a private URL token and has no in-app navigation path.
+// Keep the token-dependent confirmation page out of the shared prefetched shell.
+export const instant = false
+
 export default async function UnsubscribePage({
   searchParams,
 }: {

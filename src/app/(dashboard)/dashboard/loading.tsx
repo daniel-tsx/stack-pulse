@@ -67,20 +67,20 @@ export default function DashboardLoading() {
           <span className="text-lime">§</span>
           <span>feed</span>
           <span className="text-mute">/</span>
-          <span>today</span>
+          <span>latest</span>
         </div>
         <h1 className="mt-3 font-mono text-3xl sm:text-[40px] font-bold tracking-tight text-ink lowercase">
-          your feed<span className="text-lime">.</span>
+          release feed<span className="text-lime">.</span>
         </h1>
 
         {/* Loading status line — the signature pulse */}
         <div className="mt-3">
-          <PulseLoader size="sm" label="syncing feed…" />
+          <PulseLoader size="sm" label="loading feed…" />
         </div>
 
         {/* Stats skeleton */}
-        <div className="mt-6 grid grid-cols-3 gap-px bg-line border border-line rounded-md overflow-hidden">
-          {['releases', 'today', 'breaking'].map((label) => (
+        <div className="mt-6 grid grid-cols-2 gap-px bg-line border border-line rounded-md overflow-hidden sm:grid-cols-4">
+          {['loaded', 'unread / stacks', 'deprecated', 'breaking'].map((label) => (
             <div key={label} className="bg-shade px-4 py-3">
               <div className="font-mono text-[10px] text-fade tracking-[0.2em] uppercase">
                 {label}

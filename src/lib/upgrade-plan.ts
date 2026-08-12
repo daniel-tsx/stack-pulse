@@ -1,4 +1,5 @@
 import { desc, eq } from 'drizzle-orm'
+import { cacheLife } from 'next/cache'
 
 import { getDb } from '@/db'
 import { releaseUpdates, technologies } from '@/db/schema'
@@ -46,6 +47,9 @@ export async function getUpgradePlan(
   slug: string,
   fromVersion: string | null,
 ): Promise<UpgradePlan | null> {
+  'use cache'
+  cacheLife({ stale: 3600, revalidate: 3600, expire: 86400 })
+
   const db = getDb()
 
   const [tech] = await db

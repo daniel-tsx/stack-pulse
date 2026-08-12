@@ -2,6 +2,8 @@ import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs'
 
 const nextConfig: NextConfig = {
+  cacheComponents: true,
+  partialPrefetching: true,
   experimental: {
     // TypeScript 7 ships no JS compiler API yet, so typescript-eslint still needs the
     // TS 6 API. `typescript` is therefore aliased to @typescript/typescript6, whose bin

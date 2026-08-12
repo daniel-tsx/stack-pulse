@@ -148,11 +148,14 @@ const faqJsonLd = {
   })),
 }
 
-export const dynamic = 'force-dynamic'
+// The session decides whether this route renders or redirects. Do not stream the public
+// landing page to signed-in users while that decision is still pending.
+export const instant = false
 
 export default async function LandingPage() {
+  const requestHeaders = await headers()
   const session = await getAuth().api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   })
 
   if (session) redirect('/dashboard')

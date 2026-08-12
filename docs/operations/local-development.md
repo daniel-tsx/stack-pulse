@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- Node 20+
+- Node 20.9+ (the minimum supported by Next.js 16)
 - pnpm 11 (`packageManager` in `package.json`)
 - Neon Postgres database
 - GitHub OAuth app (callback: `http://localhost:3000/api/auth/callback/github`)

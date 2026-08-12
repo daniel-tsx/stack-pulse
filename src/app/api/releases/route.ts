@@ -11,9 +11,9 @@ import {
 } from '@/lib/release-feed-types'
 
 export async function GET(request: Request) {
-  const session = await getAuth().api.getSession({ headers: request.headers })
-
+  const requestHeaders = request.headers
   const url = new URL(request.url)
+  const session = await getAuth().api.getSession({ headers: requestHeaders })
   const importance = parseImportanceFilter(url.searchParams.get('importance') ?? undefined)
   const read = session ? parseReadFilter(url.searchParams.get('read') ?? undefined) : 'all'
   const signal = parseSignalFilter(url.searchParams.get('signal') ?? undefined)

@@ -1,11 +1,10 @@
 import type { Metadata } from 'next'
+import { cacheLife } from 'next/cache'
 import Link from 'next/link'
 import { ArrowLeft01Icon } from 'hugeicons-react'
 
 import { Logo } from '@/components/logo'
 import { getRecentFetchRuns, type FetchRunRow } from '@/lib/release-ingestion'
-
-export const revalidate = 300
 
 export const metadata: Metadata = {
   title: 'Status — ingestion runs',
@@ -36,6 +35,9 @@ function formatRelative(date: Date) {
 }
 
 export default async function StatusPage() {
+  'use cache'
+  cacheLife({ stale: 300, revalidate: 300, expire: 3600 })
+
   const runs = await getRecentFetchRuns(20)
 
   const lastRun = runs[0] ?? null

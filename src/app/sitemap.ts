@@ -1,10 +1,12 @@
 import type { MetadataRoute } from 'next'
+import { cacheLife } from 'next/cache'
 
 import { getPublicStackSlugs } from '@/lib/public-stacks'
 
-export const revalidate = 3600
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  'use cache'
+  cacheLife({ stale: 3600, revalidate: 3600, expire: 86400 })
+
   const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const now = new Date()
   const stacks = await getPublicStackSlugs()

@@ -2,21 +2,32 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { Logo } from '@/components/logo'
 import { UserMenu } from '@/components/dashboard/user-menu'
 import { WebhookSettings } from '@/components/dashboard/webhook-settings'
 import { getAuth } from '@/lib/auth'
 import { getUserWebhook } from '@/lib/webhooks'
+import SettingsLoading from './loading'
 
 export const metadata: Metadata = {
   title: 'Settings',
   description: 'Notification settings for your StackPulse feed.',
 }
 
-export default async function SettingsPage() {
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<SettingsLoading />}>
+      <SettingsContent />
+    </Suspense>
+  )
+}
+
+async function SettingsContent() {
+  const requestHeaders = await headers()
   const session = await getAuth().api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   })
 
   if (!session) redirect('/sign-in')

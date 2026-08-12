@@ -1,4 +1,5 @@
 import { desc, eq, sql } from 'drizzle-orm'
+import { cacheLife } from 'next/cache'
 
 import { getDb } from '@/db'
 import { releaseUpdates, technologies } from '@/db/schema'
@@ -59,6 +60,9 @@ export type PublicStackIndexItem = {
 }
 
 export async function getPublicStackSlugs() {
+  'use cache'
+  cacheLife({ stale: 3600, revalidate: 3600, expire: 86400 })
+
   return getDb()
     .select({
       slug: technologies.slug,
@@ -69,6 +73,9 @@ export async function getPublicStackSlugs() {
 }
 
 export async function getPublicStackIndex(): Promise<PublicStackIndexItem[]> {
+  'use cache'
+  cacheLife({ stale: 3600, revalidate: 3600, expire: 86400 })
+
   const rows = await getDb()
     .select({
       id: technologies.id,
@@ -96,6 +103,9 @@ export async function getPublicStackIndex(): Promise<PublicStackIndexItem[]> {
 }
 
 export async function getPublicStackPage(slug: string): Promise<PublicStackPageData | null> {
+  'use cache'
+  cacheLife({ stale: 3600, revalidate: 3600, expire: 86400 })
+
   const [tech] = await getDb()
     .select({
       id: technologies.id,

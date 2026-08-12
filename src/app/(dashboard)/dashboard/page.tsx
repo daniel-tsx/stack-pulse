@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { ZapIcon } from 'hugeicons-react'
 
 import { Logo } from '@/components/logo'
@@ -19,14 +20,24 @@ import {
   parseSignalFilter,
   parseTechFilter,
 } from '@/lib/release-feed-types'
+import DashboardLoading from './loading'
 
-export default async function DashboardPage({
-  searchParams,
-}: {
+type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
-}) {
+}
+
+export default function DashboardPage({ searchParams }: Props) {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardContent searchParams={searchParams} />
+    </Suspense>
+  )
+}
+
+async function DashboardContent({ searchParams }: Props) {
+  const requestHeaders = await headers()
   const session = await getAuth().api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   })
 
   const params = await searchParams
