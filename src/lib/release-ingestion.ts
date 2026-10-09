@@ -8,7 +8,12 @@ import {
   type ReleaseFetchRunDetail,
 } from '@/db/schema'
 import { summarizeRelease } from '@/lib/ai'
-import { fetchLatestReleases, type GithubRelease } from '@/lib/github'
+import {
+  fetchLatestReleases,
+  GithubApiError,
+  type GithubFetchContext,
+  type GithubRelease,
+} from '@/lib/github'
 
 export const RELEASES_PER_TECH = 5
 
@@ -21,25 +26,86 @@ export function isPublishable(release: GithubRelease): boolean {
 export type ProcessTechResult = {
   detail: ReleaseFetchRunDetail
   insertedReleaseIds: string[]
+  releasesDiscovered: number
+  releasesProcessed: number
+  releasesFailed: number
+  failures: IngestionError[]
 }
 
-export async function processTechReleases(tech: Tech): Promise<ProcessTechResult> {
+export type IngestionError = {
+  category:
+    GithubApiError['category'] | 'DATABASE' | 'AI' | 'PROCESSING' | 'TIME_BUDGET' | 'WEBHOOK'
+  scope: 'global' | 'repository' | 'release'
+  repository: string | null
+  message: string
+  upstreamStatus?: number
+}
+
+function databaseErrorScope(error: unknown): 'global' | 'release' {
+  // Drizzle wraps driver errors in cause. Data/constraint errors are release-specific;
+  // unknown database failures are conservatively fatal, including connection failures.
+  const dbError = error as { code?: string; cause?: { code?: string } } | null
+  const code = dbError?.cause?.code ?? dbError?.code
+  return typeof code === 'string' && /^(22|23)/.test(code) ? 'release' : 'global'
+}
+
+export async function processTechReleases(
+  tech: Tech,
+  githubContext?: GithubFetchContext,
+): Promise<ProcessTechResult> {
   let inserted = 0
-  let errors = 0
+  let releasesProcessed = 0
+  let releasesFailed = 0
+  const failures: IngestionError[] = []
   const insertedReleaseIds: string[] = []
+
+  function recordFailure(failure: IngestionError) {
+    failures.push(failure)
+    console.error('release processing failed', failure)
+  }
+
+  function result(releasesDiscovered: number): ProcessTechResult {
+    return {
+      detail: { tech: tech.name, inserted, errors: failures.length },
+      insertedReleaseIds,
+      releasesDiscovered,
+      releasesProcessed,
+      releasesFailed,
+      failures,
+    }
+  }
 
   let releases: GithubRelease[]
   try {
-    releases = await fetchLatestReleases(tech.githubRepoUrl, RELEASES_PER_TECH)
+    releases = await fetchLatestReleases(tech.githubRepoUrl, RELEASES_PER_TECH, githubContext)
   } catch (err) {
-    console.error(`fetch failed for ${tech.name}:`, err)
-    return { detail: { tech: tech.name, inserted, errors: 1 }, insertedReleaseIds }
+    const error = err instanceof GithubApiError ? err : new GithubApiError('GITHUB_UPSTREAM')
+    recordFailure({
+      category: error.category,
+      scope: error.scope,
+      repository: tech.name,
+      message: error.message,
+      upstreamStatus: error.upstreamStatus,
+    })
+    return result(0)
   }
 
   for (const release of releases) {
-    if (!isPublishable(release)) continue
-
+    let stage: 'PROCESSING' | 'DATABASE' | 'AI' = 'PROCESSING'
     try {
+      // Keep validation inside the result boundary so a later bad entry cannot
+      // discard earlier committed counters or notification IDs.
+      if (
+        !release ||
+        typeof release !== 'object' ||
+        typeof release.tag_name !== 'string' ||
+        typeof release.draft !== 'boolean' ||
+        (release.published_at !== null && typeof release.published_at !== 'string')
+      )
+        throw new Error('Invalid GitHub release entry')
+      if (!isPublishable(release)) continue
+
+      stage = 'DATABASE'
       const db = getDb()
       const existing = await db
         .select({ id: releaseUpdates.id })
@@ -49,9 +115,13 @@ export async function processTechReleases(tech: Tech): Promise<ProcessTechResult
         )
         .limit(1)
 
-      if (existing.length > 0) continue
+      if (existing.length > 0) {
+        releasesProcessed++
+        continue
+      }
 
       const model = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-chat'
+      stage = 'AI'
       const summary = await summarizeRelease({
         repoName: tech.name,
         version: release.tag_name,
@@ -61,6 +131,7 @@ export async function processTechReleases(tech: Tech): Promise<ProcessTechResult
         prerelease: release.prerelease,
       })
 
+      stage = 'DATABASE'
       const result = await db
         .insert(releaseUpdates)
         .values({
@@ -94,13 +165,29 @@ export async function processTechReleases(tech: Tech): Promise<ProcessTechResult
         inserted++
         insertedReleaseIds.push(result[0].id)
       }
+      releasesProcessed++
     } catch (err) {
-      errors++
-      console.error(`insert failed for ${tech.name}@${release.tag_name}:`, err)
+      releasesFailed++
+      const upstreamStatus =
+        stage === 'AI' && typeof (err as { status?: unknown } | null)?.status === 'number'
+          ? (err as { status: number }).status
+          : undefined
+      recordFailure({
+        category: stage,
+        scope: stage === 'DATABASE' ? databaseErrorScope(err) : 'release',
+        repository: tech.name,
+        message:
+          stage === 'DATABASE'
+            ? 'Release database operation failed'
+            : stage === 'AI'
+              ? 'Release AI summarization failed'
+              : 'Release processing failed unexpectedly',
+        upstreamStatus,
+      })
     }
   }
 
-  return { detail: { tech: tech.name, inserted, errors }, insertedReleaseIds }
+  return result(releases.length)
 }
 
 export type FetchRunRow = {
@@ -143,17 +230,21 @@ export async function createReleaseFetchRun(trigger: string) {
 export async function finishReleaseFetchRun({
   runId,
   details,
+  status,
+  additionalErrors = 0,
 }: {
   runId: string
   details: ReleaseFetchRunDetail[]
+  status?: 'completed' | 'completed_with_errors' | 'failed'
+  additionalErrors?: number
 }) {
   const releasesInserted = details.reduce((sum, detail) => sum + detail.inserted, 0)
-  const errors = details.reduce((sum, detail) => sum + detail.errors, 0)
+  const errors = details.reduce((sum, detail) => sum + detail.errors, additionalErrors)
 
   await getDb()
     .update(releaseFetchRuns)
     .set({
-      status: errors > 0 ? 'completed_with_errors' : 'completed',
+      status: status ?? (errors > 0 ? 'completed_with_errors' : 'completed'),
       technologiesScanned: details.length,
       releasesInserted,
       errors,

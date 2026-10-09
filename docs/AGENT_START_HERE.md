@@ -82,7 +82,7 @@ Old Drizzle snapshots (`drizzle/meta/0000_snapshot.json`, `0001`) still mention 
 | Server actions | `src/lib/actions.ts` | [features/server-actions.md](./features/server-actions.md) | Prefs, digest, read state, custom repos |
 | Env vars | `.env.example` | [operations/environment-variables.md](./operations/environment-variables.md) | Canonical list |
 | Deploy & cron | `vercel.json`, README | [operations/deployment.md](./operations/deployment.md) | Vercel Cron auth via `CRON_SECRET` |
-| Local dev | `package.json` scripts | [operations/local-development.md](./operations/local-development.md) | No test suite in repo |
+| Local dev | `package.json` scripts | [operations/local-development.md](./operations/local-development.md) | Focused cron suite: `pnpm test:cron` |
 | Navigation + caching | `next.config.ts`, `src/app/**/loading.tsx`, cached data helpers | [operations/navigation-and-caching.md](./operations/navigation-and-caching.md) | Cache Components + Partial Prefetching |
 | Digest | `src/lib/digest.ts`, `digestSubscribers` table, `subscribeToDigest` | [features/digest-signup.md](./features/digest-signup.md) | Capture + weekly Resend send + unsubscribe |
 | Design system + architecture | `globals.css`, `src/components/**` | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) | Tokens, layout, copy voice, badges |
@@ -121,6 +121,7 @@ When editing a doc, set status in the first lines. Move completed plans to `docs
 pnpm typecheck        # TypeScript 7
 pnpm typecheck:ts6    # TypeScript 6, for comparing during the TS 7 migration
 pnpm lint
+pnpm test:cron        # Mocked cron/GitHub recovery tests
 pnpm build
 git diff --check
 ```
@@ -146,7 +147,7 @@ Backfill AI summaries for existing releases:
 pnpm releases:backfill -- --limit=10
 ```
 
-**No automated test suite** exists (`vitest`/`jest` not configured).
+Focused cron tests use Node's built-in runner with mocked external services; Vitest/Jest are not configured.
 
 ---
 
@@ -164,7 +165,7 @@ See [operations/environment-variables.md](./operations/environment-variables.md)
 | `OPENROUTER_API_KEY` | yes (for AI) | Release summarisation |
 | `CRON_SECRET` | yes (cron) | Protects `/api/cron/fetch-releases` |
 | `OPENROUTER_MODEL` | no | Default `deepseek/deepseek-chat` |
-| `GITHUB_TOKEN` | no | Raises GitHub API rate limit |
+| `GITHUB_TOKEN` | yes (release cron) | GitHub API PAT; required by protected health check too |
 | `BETTER_AUTH_API_KEY` | no | Better Auth Dash plugin |
 | `RESEND_API_KEY` | no | Weekly digest emails |
 | `DIGEST_FROM_EMAIL` | no | Verified Resend sender for digests |

@@ -109,10 +109,10 @@ See [`.env.example`](.env.example) and [`docs/operations/environment-variables.m
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — OAuth app credentials
 - `OPENROUTER_API_KEY` — for release summarisation
 - `CRON_SECRET` — `openssl rand -hex 32`
+- `GITHUB_TOKEN` — valid GitHub PAT for the release cron and protected credential check
 
 Optional but recommended:
 
-- `GITHUB_TOKEN` — raises the GitHub API rate limit from 60/h to 5000/h
 - `RESEND_API_KEY` / `DIGEST_FROM_EMAIL` — enables the weekly digest emails (the digest cron no-ops without them)
 
 ## Project structure
@@ -140,7 +140,7 @@ drizzle/            versioned migrations
 
 This is a side project. Issues and PRs are welcome — particularly for new stacks to add to the seed registry, summarisation improvements, or accessibility fixes.
 
-Keep changes small and focused. Run `pnpm typecheck && pnpm lint` before pushing.
+Keep changes small and focused. Run `pnpm typecheck && pnpm lint` and `pnpm test:cron` before pushing.
 
 ## Licence
 

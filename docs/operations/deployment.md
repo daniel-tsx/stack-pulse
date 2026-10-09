@@ -21,6 +21,11 @@
 
 Release fetch runs at **00:00 and 12:00 UTC** daily; digest emails send **Mondays 14:00 UTC** (after the Monday fetch). Both authenticated with `CRON_SECRET` bearer header. Digest sending also needs `RESEND_API_KEY` + `DIGEST_FROM_EMAIL` (no-ops with a warning otherwise).
 
+Release cron also requires a valid `GITHUB_TOKEN`. Manual `GET /api/cron/github-health`,
+protected by the same `CRON_SECRET`, checks it with one read-only GitHub request and no
+AI/database work. It is not scheduled. Follow the [F1 production verification checklist](../audits/F1-cron-recovery.md)
+after an approved deployment; wait for scheduled ingestion instead of triggering live cron.
+
 ## Deploy checklist
 
 1. Push to GitHub

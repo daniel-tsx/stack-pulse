@@ -16,13 +16,13 @@ Canonical template: [`.env.example`](../../.env.example)
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth |
 | `OPENROUTER_API_KEY` | AI summarisation (ingestion fails without it) |
 | `CRON_SECRET` | Bearer token for cron endpoint |
+| `GITHUB_TOKEN` | Valid GitHub PAT required by release cron and protected GitHub health check |
 
 ## Optional
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `OPENROUTER_MODEL` | `deepseek/deepseek-chat` | OpenRouter model id |
-| `GITHUB_TOKEN` | — | GitHub API PAT (rate limit 60→5000/h) |
 | `BETTER_AUTH_API_KEY` | — | Better Auth Dash at dash.better-auth.com |
 | `RESEND_API_KEY` | — | Weekly digest emails (digest cron no-ops without it) |
 | `DIGEST_FROM_EMAIL` | — | Verified Resend sender, e.g. `StackPulse <digest@domain.com>` |
@@ -37,7 +37,12 @@ For basic local run:
 - `DATABASE_URL`
 - `OPENROUTER_API_KEY` (if testing ingestion/summaries)
 - `CRON_SECRET` (if testing cron manually)
+- `GITHUB_TOKEN` (if testing cron or the GitHub health check)
 - Auth vars optional in dev unless testing sign-in
+
+The standalone public-repository helper still supports unauthenticated reads without
+`GITHUB_TOKEN`. A configured token rejected with 401 never falls back to anonymous access.
+See [release ingestion](../features/release-ingestion.md) for the runtime contract.
 
 ## Not used (historical)
 

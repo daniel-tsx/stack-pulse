@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 const statusTone: Record<string, string> = {
   completed: 'border-emerald/30 bg-emerald/10 text-emerald',
   completed_with_errors: 'border-amber/30 bg-amber/10 text-amber',
+  failed: 'border-rose/30 bg-rose/10 text-rose',
   running: 'border-cyan/30 bg-cyan/10 text-cyan',
 }
 
@@ -164,7 +165,8 @@ export default async function StatusPage() {
 
         <p className="mt-6 font-mono text-[11.5px] text-fade">
           {'// '}this page revalidates every 5 minutes. errors here mean a stack&apos;s GitHub fetch
-          or AI summarisation failed for that run — they retry on the next run.
+          or AI summarisation failed for that run. Later runs check the latest five releases;
+          older gaps may need recovery.
         </p>
       </main>
     </div>

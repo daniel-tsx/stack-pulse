@@ -32,6 +32,7 @@ App: http://localhost:3000
 | `dev` | Next dev server |
 | `build` / `start` | Production build & serve |
 | `lint` | ESLint (`eslint.config.mjs`) |
+| `test:cron` | Node test runner with mocked cron/GitHub dependencies |
 | `db:generate` | New Drizzle migration from schema |
 | `db:migrate` | Apply migrations |
 | `db:push` | Push schema (dev) |
@@ -44,9 +45,11 @@ App: http://localhost:3000
 
 ```bash
 pnpm typecheck && pnpm lint
+pnpm test:cron
 ```
 
-No test runner configured.
+Cron recovery tests use Node's built-in runner and the installed TypeScript compiler API.
+No external APIs or production database are used.
 
 ## Manual cron
 
@@ -54,4 +57,6 @@ No test runner configured.
 curl -H "Authorization: Bearer YOUR_CRON_SECRET" "http://localhost:3000/api/cron/fetch-releases"
 ```
 
-Requires at least one user following a stack for cron to scan anything.
+Use an isolated development DB and valid `GITHUB_TOKEN`; ingestion can incur AI cost.
+All registry stacks are scanned even without followers. For credential verification alone,
+use protected `GET /api/cron/github-health`, which performs no AI/database work.
