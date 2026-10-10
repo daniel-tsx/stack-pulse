@@ -5,8 +5,19 @@ import * as schema from './schema'
 type Db = ReturnType<typeof drizzle>
 
 let db: Db | null = null
+const scopedDatabases = new WeakMap<AbortSignal, Db>()
 
-export function getDb(): Db {
+export function getDb(signal?: AbortSignal): Db {
+  if (signal) {
+    signal.throwIfAborted()
+    const existing = scopedDatabases.get(signal)
+    if (existing) return existing
+    const url = process.env.DATABASE_URL
+    if (!url) throw new Error('DATABASE_URL is not set')
+    const scoped = drizzle(neon(url, { fetchOptions: { signal } }), { schema })
+    scopedDatabases.set(signal, scoped)
+    return scoped
+  }
   if (!db) {
     const databaseUrl = process.env.DATABASE_URL
     if (!databaseUrl) {

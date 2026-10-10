@@ -1,3 +1,5 @@
+import { ExecutionDeadlineError, type ExecutionBudget } from '@/lib/execution-budget'
+
 const GITHUB_API = 'https://api.github.com'
 
 export interface GithubRelease {
@@ -39,7 +41,7 @@ export class GithubApiError extends Error {
 }
 
 // One context per cron invocation; standalone public-repository callers need no token.
-export type GithubFetchContext = { authFailure: GithubApiError | null }
+export type GithubFetchContext = { authFailure: GithubApiError | null; execution?: ExecutionBudget }
 
 export function createGithubFetchContext(): GithubFetchContext {
   return {
@@ -73,7 +75,8 @@ async function requestGithub(
 
   // One retry on network error or 5xx.
   for (let attempt = 0; attempt < (retry ? 2 : 1); attempt++) {
-    const signal = AbortSignal.timeout(TIMEOUT_MS)
+    context?.execution?.check()
+    const signal = context?.execution?.requestSignal(TIMEOUT_MS) ?? AbortSignal.timeout(TIMEOUT_MS)
     let url = `${GITHUB_API}${path}`
     let res: Response
     try {
@@ -81,6 +84,8 @@ async function requestGithub(
         // Guard every HTTP dispatch, including redirects and retries. Keep one
         // timeout across each redirect chain, as native fetch did before.
         if (context?.authFailure) throw context.authFailure
+        context?.execution?.check()
+        signal.throwIfAborted()
         res = await fetch(url, {
           headers,
           signal,
@@ -104,6 +109,9 @@ async function requestGithub(
         url = target.href
       }
     } catch (error) {
+      if (error instanceof GithubApiError && error.scope === 'global') throw error
+      if (context?.execution?.signal.aborted || error instanceof ExecutionDeadlineError)
+        throw new ExecutionDeadlineError()
       if (error instanceof GithubApiError) throw error
       if (retry && attempt === 0) continue
       throw new GithubApiError('GITHUB_NETWORK')
@@ -135,6 +143,9 @@ async function requestGithub(
     }
     const error = new GithubApiError(category, res.status)
     if (category === 'GITHUB_AUTH' && context) context.authFailure = error
+    await res.body?.cancel().catch(() => {})
+    if (category !== 'GITHUB_AUTH' && context?.execution?.signal.aborted)
+      throw new ExecutionDeadlineError()
     throw error
   }
 
@@ -153,6 +164,7 @@ export async function fetchLatestReleases(
     if (!Array.isArray(releases)) throw new GithubApiError('GITHUB_UPSTREAM', res.status)
     return releases
   } catch {
+    if (context?.execution?.signal.aborted) throw new ExecutionDeadlineError()
     throw new GithubApiError('GITHUB_UPSTREAM', res.status)
   }
 }

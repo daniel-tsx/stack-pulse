@@ -1,5 +1,10 @@
 import OpenAI from 'openai'
 import { z } from 'zod'
+import {
+  AiProviderError,
+  createAiExecutionContext,
+  type AiExecutionContext,
+} from '@/lib/ai-resilience'
 
 type OpenRouterChatParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & {
   // OpenRouter-only routing object the OpenAI SDK does not model. require_parameters
@@ -13,7 +18,7 @@ function getOpenAI() {
   if (!openai) {
     const apiKey = process.env.OPENROUTER_API_KEY
     if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY is required')
+      throw new AiProviderError('AUTHENTICATION_ERROR')
     }
 
     openai = new OpenAI({
@@ -121,6 +126,8 @@ const releaseAdviceJsonSchema = {
 }
 
 export type SummarizeReleaseInput = {
+  repositoryId?: string
+  releaseId?: number
   repoName: string
   version: string
   title: string | null
@@ -182,47 +189,87 @@ Rules:
 
 Return a single JSON object matching the provided response schema.`
 
-export async function summarizeRelease(input: SummarizeReleaseInput): Promise<ReleaseSummary> {
+export async function summarizeRelease(
+  input: SummarizeReleaseInput,
+  execution: AiExecutionContext = createAiExecutionContext(),
+): Promise<ReleaseSummary> {
   const model = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-chat'
-  const body = input.body?.trim()
 
-  const response = await getOpenAI().chat.completions.create({
-    model,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: [
-          `Repository: ${input.repoName}`,
-          `Version/tag: ${input.version}`,
-          `Release title: ${input.title || input.version}`,
-          `Prerelease: ${input.prerelease ? 'yes' : 'no'}`,
-          `Source URL: ${input.url}`,
-          '',
-          'Release markdown:',
-          '<release_notes>',
-          body ? body.slice(0, 8000) : '(No release notes were provided.)',
-          '</release_notes>',
-        ].join('\n'),
-      },
-    ],
-    temperature: 0,
-    max_tokens: 2000,
-    response_format: {
-      type: 'json_schema',
-      json_schema: { name: 'release_summary', strict: true, schema: releaseSummaryJsonSchema },
+  return execution.run(
+    async (options) => {
+      const body = input.body?.trim()
+      const { data: response, response: httpResponse } = await getOpenAI()
+        .chat.completions.create(
+          {
+            model,
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              {
+                role: 'user',
+                content: [
+                  `Repository: ${input.repoName}`,
+                  `Version/tag: ${input.version}`,
+                  `Release title: ${input.title || input.version}`,
+                  `Prerelease: ${input.prerelease ? 'yes' : 'no'}`,
+                  `Source URL: ${input.url}`,
+                  '',
+                  'Release markdown:',
+                  '<release_notes>',
+                  body ? body.slice(0, 8000) : '(No release notes were provided.)',
+                  '</release_notes>',
+                ].join('\n'),
+              },
+            ],
+            temperature: 0,
+            max_tokens: 2000,
+            response_format: {
+              type: 'json_schema',
+              json_schema: {
+                name: 'release_summary',
+                strict: true,
+                schema: releaseSummaryJsonSchema,
+              },
+            },
+            provider: { require_parameters: true },
+          } as OpenRouterChatParams,
+          options,
+        )
+        .withResponse()
+
+      // OpenRouter can return an error envelope after accepting a request with HTTP 200.
+      const envelope = response as unknown as {
+        error?: unknown
+        choices?: { error?: unknown; finish_reason?: string }[]
+      }
+      const choice = envelope?.choices?.[0]
+      const providerError = envelope?.error ?? choice?.error
+      if (providerError !== undefined || choice?.finish_reason === 'error') {
+        if (
+          !providerError ||
+          typeof providerError !== 'object' ||
+          !('code' in providerError) ||
+          typeof providerError.code !== 'number' ||
+          !Number.isInteger(providerError.code) ||
+          providerError.code < 400 ||
+          providerError.code > 599
+        )
+          throw new AiProviderError('INVALID_RESPONSE', httpResponse.status)
+        throw { error: providerError, headers: httpResponse.headers, status: httpResponse.status }
+      }
+
+      const content = response?.choices?.[0]?.message?.content
+      if (!content) throw new AiProviderError('INVALID_RESPONSE')
+
+      try {
+        const parsed = releaseSummarySchema.safeParse(JSON.parse(content))
+        if (!parsed.success) throw new AiProviderError('INVALID_RESPONSE')
+        return normalizeReleaseSummary(parsed.data)
+      } catch {
+        throw new AiProviderError('INVALID_RESPONSE')
+      }
     },
-    provider: { require_parameters: true },
-  } as OpenRouterChatParams)
-
-  const content = response.choices[0]?.message?.content
-  if (!content) throw new Error('No response from AI')
-
-  const parsed = releaseSummarySchema.safeParse(JSON.parse(content))
-  if (!parsed.success) {
-    throw new Error(`AI response failed validation: ${parsed.error.message}`)
-  }
-  return normalizeReleaseSummary(parsed.data)
+    { model, repositoryId: input.repositoryId, releaseId: input.releaseId },
+  )
 }
 
 export async function adviseOnRelease(input: AdviseOnReleaseInput): Promise<ReleaseAdvice> {

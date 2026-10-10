@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray } from 'drizzle-orm'
 
 import { getDb } from '@/db'
+import { ExecutionDeadlineError, type ExecutionBudget } from '@/lib/execution-budget'
 import { releaseUpdates, technologies, userTechPreferences, userWebhooks } from '@/db/schema'
 
 export type WebhookKind = 'slack' | 'discord'
@@ -107,13 +108,19 @@ function formatDiscordPayload(releases: NotifiableRelease[], extraCount: number)
   }
 }
 
-export async function postWebhook(kind: WebhookKind, url: string, payload: unknown) {
+export async function postWebhook(
+  kind: WebhookKind,
+  url: string,
+  payload: unknown,
+  execution?: ExecutionBudget,
+) {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+    signal: execution?.requestSignal(WEBHOOK_TIMEOUT_MS) ?? AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
   })
+  await response.body?.cancel()
 
   // Slack returns 200 "ok"; Discord returns 204.
   if (!response.ok) {
@@ -130,55 +137,65 @@ export type WebhookDispatchSummary = {
   webhooks: number
   sent: number
   errors: number
+  deadlineReached?: boolean
+  deferred?: number
 }
 
 /** Notifies followers' webhooks about freshly inserted releases. Errors never propagate. */
 export async function dispatchReleaseWebhooks(
   insertedReleaseIds: string[],
+  execution?: ExecutionBudget,
 ): Promise<WebhookDispatchSummary> {
   const summary: WebhookDispatchSummary = { webhooks: 0, sent: 0, errors: 0 }
   if (insertedReleaseIds.length === 0) return summary
+  const measure = <T>(stage: string, operation: () => PromiseLike<T>) =>
+    execution ? execution.measure(stage, operation) : Promise.resolve(operation())
 
   try {
-    const db = getDb()
+    execution?.check(1000)
+    const db = getDb(execution?.signal)
     const cutoff = new Date(Date.now() - NOTIFY_MAX_AGE_DAYS * 24 * 60 * 60 * 1000)
 
-    const releases: NotifiableRelease[] = await db
-      .select({
-        id: releaseUpdates.id,
-        techId: releaseUpdates.techId,
-        techName: technologies.name,
-        version: releaseUpdates.version,
-        title: releaseUpdates.title,
-        summary: releaseUpdates.summary,
-        importanceLevel: releaseUpdates.importanceLevel,
-        breakingChanges: releaseUpdates.breakingChanges,
-        rawReleaseUrl: releaseUpdates.rawReleaseUrl,
-      })
-      .from(releaseUpdates)
-      .innerJoin(technologies, eq(releaseUpdates.techId, technologies.id))
-      .where(
-        and(
-          inArray(releaseUpdates.id, insertedReleaseIds.slice(0, 500)),
-          eq(releaseUpdates.isPrerelease, false),
-          gte(releaseUpdates.publishedAt, cutoff),
+    const releases: NotifiableRelease[] = await measure('notificationPreparation', () =>
+      db
+        .select({
+          id: releaseUpdates.id,
+          techId: releaseUpdates.techId,
+          techName: technologies.name,
+          version: releaseUpdates.version,
+          title: releaseUpdates.title,
+          summary: releaseUpdates.summary,
+          importanceLevel: releaseUpdates.importanceLevel,
+          breakingChanges: releaseUpdates.breakingChanges,
+          rawReleaseUrl: releaseUpdates.rawReleaseUrl,
+        })
+        .from(releaseUpdates)
+        .innerJoin(technologies, eq(releaseUpdates.techId, technologies.id))
+        .where(
+          and(
+            inArray(releaseUpdates.id, insertedReleaseIds.slice(0, 500)),
+            eq(releaseUpdates.isPrerelease, false),
+            gte(releaseUpdates.publishedAt, cutoff),
+          ),
         ),
-      )
+    )
 
     if (releases.length === 0) return summary
 
     const techIds = Array.from(new Set(releases.map((release) => release.techId)))
-    const subscriptions = await db
-      .select({
-        webhookId: userWebhooks.id,
-        kind: userWebhooks.kind,
-        url: userWebhooks.url,
-        minImportance: userWebhooks.minImportance,
-        techId: userTechPreferences.techId,
-      })
-      .from(userWebhooks)
-      .innerJoin(userTechPreferences, eq(userTechPreferences.userId, userWebhooks.userId))
-      .where(inArray(userTechPreferences.techId, techIds))
+    const subscriptions = await measure('notificationPreparation', () =>
+      db
+        .select({
+          webhookId: userWebhooks.id,
+          kind: userWebhooks.kind,
+          url: userWebhooks.url,
+          minImportance: userWebhooks.minImportance,
+          techId: userTechPreferences.techId,
+        })
+        .from(userWebhooks)
+        .innerJoin(userTechPreferences, eq(userTechPreferences.userId, userWebhooks.userId))
+        .where(inArray(userTechPreferences.techId, techIds)),
+    )
 
     const byWebhook = new Map<
       string,
@@ -186,6 +203,7 @@ export async function dispatchReleaseWebhooks(
     >()
 
     for (const subscription of subscriptions) {
+      execution?.check()
       if (subscription.kind !== 'slack' && subscription.kind !== 'discord') continue
       const entry = byWebhook.get(subscription.webhookId) ?? {
         kind: subscription.kind,
@@ -204,11 +222,17 @@ export async function dispatchReleaseWebhooks(
       byWebhook.set(subscription.webhookId, entry)
     }
 
-    const startedAt = Date.now()
+    const startedAt = performance.now()
+    const entries = [...byWebhook.values()].filter((entry) => entry.releases.length > 0)
 
-    for (const entry of byWebhook.values()) {
-      if (entry.releases.length === 0) continue
-      if (Date.now() - startedAt > DISPATCH_TIME_BUDGET_MS) {
+    for (const [index, entry] of entries.entries()) {
+      if (execution && (execution.signal.aborted || execution.remainingMs() < 1000)) {
+        summary.deadlineReached = true
+        summary.deferred = entries.length - index
+        break
+      }
+      if (performance.now() - startedAt > DISPATCH_TIME_BUDGET_MS) {
+        summary.deferred = entries.length - index
         console.warn('webhook dispatch time budget reached')
         break
       }
@@ -222,16 +246,26 @@ export async function dispatchReleaseWebhooks(
           : formatDiscordPayload(shown, extra)
 
       try {
-        await postWebhook(entry.kind, entry.url, payload)
+        await measure('notificationDelivery', () =>
+          postWebhook(entry.kind, entry.url, payload, execution),
+        )
         summary.sent += 1
       } catch (err) {
         summary.errors += 1
-        console.error('webhook dispatch failed:', err)
+        if (execution?.signal.aborted || err instanceof ExecutionDeadlineError)
+          summary.deadlineReached = true
+        console.error('webhook dispatch failed', {
+          category: summary.deadlineReached ? 'TIME_BUDGET' : 'WEBHOOK',
+        })
       }
     }
   } catch (err) {
     summary.errors += 1
-    console.error('dispatchReleaseWebhooks failed:', err)
+    if (execution?.signal.aborted || err instanceof ExecutionDeadlineError)
+      summary.deadlineReached = true
+    console.error('webhook preparation failed', {
+      category: summary.deadlineReached ? 'TIME_BUDGET' : 'WEBHOOK',
+    })
   }
 
   return summary

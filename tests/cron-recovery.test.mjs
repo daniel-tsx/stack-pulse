@@ -8,6 +8,7 @@ import ts from 'typescript'
 const nativeRequire = createRequire(import.meta.url)
 const TOKEN = 'synthetic-github-credential'
 const CRON_SECRET = 'synthetic-cron-credential'
+const AI_KEY = 'synthetic-openrouter-credential'
 const RAW_ERROR = `private upstream payload ${TOKEN} Authorization: Bearer ${CRON_SECRET}`
 const plain = (value) => JSON.parse(JSON.stringify(value))
 const json = (body, status = 200, headers = {}) => Response.json(body, { status, headers })
@@ -73,7 +74,7 @@ function transport(reply, authFailed = () => false) {
 // Execute the actual TS modules with strict import allowlists. No production clients,
 // real environment variables, external fetches, or Next server are loaded by this suite.
 function harness(options = {}) {
-  const env = { GITHUB_TOKEN: TOKEN, CRON_SECRET, ...options.env }
+  const env = { GITHUB_TOKEN: TOKEN, CRON_SECRET, OPENROUTER_API_KEY: AI_KEY, ...options.env }
   const state = {
     fetches: [],
     ai: [],
@@ -84,9 +85,19 @@ function harness(options = {}) {
     dispatched: [],
     finalizedAtDispatch: [],
     dbCalls: 0,
+    dbOperations: [],
+    activeOperations: 0,
+    aiRequests: [],
+    aiClients: [],
   }
   const schema = Object.fromEntries(
-    ['technologies', 'userTechPreferences', 'releaseUpdates', 'releaseFetchRuns'].map((table) => [
+    [
+      'technologies',
+      'userTechPreferences',
+      'releaseUpdates',
+      'releaseFetchRuns',
+      'userWebhooks',
+    ].map((table) => [
       table,
       new Proxy(
         { table },
@@ -95,85 +106,155 @@ function harness(options = {}) {
     ]),
   )
   const rows = [...(options.existing ?? [])]
-  const db = {
-    select: () => ({
-      from(table) {
-        if (table === schema.technologies) {
-          if (options.setupFailure) throw new Error(RAW_ERROR)
-          return Promise.resolve(options.techs ?? [tech(1)])
-        }
-        assert.equal(table, schema.releaseUpdates)
-        return {
-          where(conditions) {
-            return {
-              async limit() {
-                if (options.lookupFailure) throw options.lookupFailure
-                const [techId, version] = conditions.map((item) => item.value)
-                return rows.filter((row) => row.techId === techId && row.version === version)
+  function scopedDb(signal) {
+    async function operation(stage, action, values) {
+      signal?.throwIfAborted()
+      state.dbOperations.push({
+        stage,
+        signal,
+        time: options.performance?.now() ?? performance.now(),
+      })
+      state.activeOperations++
+      try {
+        if (options.dbOperation) await options.dbOperation({ stage, signal, values, state })
+        signal?.throwIfAborted()
+        const value = action()
+        options.dbAcknowledged?.({ stage, values, state })
+        return value
+      } finally {
+        state.activeOperations--
+      }
+    }
+    return {
+      select: (fields) => ({
+        from(table) {
+          if (table === schema.technologies) {
+            if (options.setupFailure) throw new Error(RAW_ERROR)
+            return operation('selection', () => options.techs ?? [tech(1)])
+          }
+          if (options.realWebhooks && (fields?.techName || table === schema.userWebhooks)) {
+            const builder = {
+              innerJoin() {
+                return builder
+              },
+              where() {
+                return operation(
+                  table === schema.releaseUpdates
+                    ? 'notificationReleases'
+                    : 'notificationSubscriptions',
+                  () =>
+                    table === schema.releaseUpdates
+                      ? (options.notificationReleases ?? [])
+                      : (options.notificationSubscriptions ?? []),
+                )
               },
             }
-          },
-        }
-      },
-    }),
-    selectDistinct: () => ({
-      from: () => Promise.resolve((options.followed ?? []).map((techId) => ({ techId }))),
-    }),
-    insert: (table) => ({
-      values(values) {
-        const builder = {
-          onConflictDoNothing({ target }) {
-            state.conflicts.push(target)
             return builder
-          },
-          async returning() {
-            if (table === schema.releaseFetchRuns) {
-              if (options.runCreationFailure) throw new Error(RAW_ERROR)
-              const row = {
-                id: `run-${state.runs.length}`,
-                status: 'running',
-                technologiesScanned: 0,
-                releasesInserted: 0,
-                errors: 0,
-                finishedAt: null,
-                ...values,
+          }
+          assert.equal(table, schema.releaseUpdates)
+          return {
+            where(conditions) {
+              return {
+                async limit() {
+                  if (options.lookupFailure) throw options.lookupFailure
+                  const [techId, version] = conditions.map((item) => item.value)
+                  return operation('lookup', () =>
+                    rows.filter((row) => row.techId === techId && row.version === version),
+                  )
+                },
               }
-              state.runs.push(row)
-              return [row]
-            }
-            assert.equal(table, schema.releaseUpdates)
-            const insertError =
-              typeof options.insertFailure === 'function'
-                ? options.insertFailure(values)
-                : options.insertFailure
-            if (insertError) throw insertError
-            if (
-              options.conflict ||
-              rows.some((row) => row.techId === values.techId && row.version === values.version)
-            )
-              return []
-            const row = { id: `release-${rows.length}`, ...values }
-            rows.push(row)
-            state.inserts.push(row)
-            return [{ id: row.id }]
-          },
-        }
-        return builder
-      },
-    }),
-    update: () => ({
-      set: (values) => ({
-        async where(condition) {
-          if (options.finalizationFailure) throw new Error(RAW_ERROR)
-          assert.equal(condition.column, schema.releaseFetchRuns.id)
-          const row = state.runs.find((run) => run.id === condition.value)
-          assert.ok(row)
-          Object.assign(row, values)
+            },
+          }
         },
       }),
-    }),
+      selectDistinct: () => ({
+        from: () =>
+          operation('followers', () => (options.followed ?? []).map((techId) => ({ techId }))),
+      }),
+      insert: (table) => ({
+        values(values) {
+          const builder = {
+            onConflictDoNothing({ target }) {
+              state.conflicts.push(target)
+              return builder
+            },
+            async returning() {
+              if (table === schema.releaseFetchRuns) {
+                if (options.runCreationFailure) throw new Error(RAW_ERROR)
+                const row = {
+                  id: `run-${state.runs.length}`,
+                  status: 'running',
+                  technologiesScanned: 0,
+                  releasesInserted: 0,
+                  errors: 0,
+                  finishedAt: null,
+                  ...values,
+                }
+                return operation(
+                  'createRun',
+                  () => {
+                    state.runs.push(row)
+                    return [row]
+                  },
+                  values,
+                )
+              }
+              assert.equal(table, schema.releaseUpdates)
+              const insertError =
+                typeof options.insertFailure === 'function'
+                  ? options.insertFailure(values)
+                  : options.insertFailure
+              if (insertError) throw insertError
+              if (
+                options.conflict ||
+                rows.some((row) => row.techId === values.techId && row.version === values.version)
+              )
+                return []
+              const row = { id: `release-${rows.length}`, ...values }
+              return operation(
+                'insert',
+                () => {
+                  rows.push(row)
+                  state.inserts.push(row)
+                  return [{ id: row.id }]
+                },
+                values,
+              )
+            },
+          }
+          return builder
+        },
+      }),
+      update: () => ({
+        set: (values) => ({
+          async where(condition) {
+            if (options.finalizationFailure) throw new Error(RAW_ERROR)
+            assert.equal(condition.column, schema.releaseFetchRuns.id)
+            const row = state.runs.find((run) => run.id === condition.value)
+            assert.ok(row)
+            await operation('finalization', () => Object.assign(row, values), values)
+          },
+        }),
+      }),
+    }
   }
   const imports = {
+    openai: class extends nativeRequire('openai') {
+      static default = this
+      constructor(config) {
+        state.aiClients.push(config)
+        super({
+          ...config,
+          fetch: async (url, config) => {
+            assert.equal(url, 'https://openrouter.ai/api/v1/chat/completions')
+            state.aiRequests.push({ config, time: options.aiRuntime?.now() ?? Date.now() })
+            if (!options.aiFetch) throw new Error('No mock AI transport configured')
+            return options.aiFetch(config, state.aiRequests.length)
+          },
+        })
+      }
+    },
+    zod: nativeRequire('zod'),
     'next/server': {
       NextResponse: { json: (body, init) => Response.json(body, init) },
       NextRequest: Request,
@@ -183,12 +264,15 @@ function harness(options = {}) {
       eq: (column, value) => ({ column, value }),
       and: (...items) => items,
       desc: (column) => column,
+      inArray: (column, value) => ({ column, value }),
+      gte: (column, value) => ({ column, value }),
     },
     '@/db/schema': schema,
     '@/db': {
-      getDb() {
+      getDb(signal) {
         state.dbCalls++
-        return db
+        signal?.throwIfAborted()
+        return scopedDb(signal)
       },
     },
     '@/lib/ai': {
@@ -208,9 +292,11 @@ function harness(options = {}) {
       },
     },
     '@/lib/webhooks': {
-      async dispatchReleaseWebhooks(ids) {
+      async dispatchReleaseWebhooks(ids, execution) {
         state.dispatched.push([...ids])
         state.finalizedAtDispatch.push(!!state.runs.at(-1)?.finishedAt)
+        assert.equal(state.activeOperations, 0)
+        if (options.dispatch) return options.dispatch(ids, execution, state)
         if (options.webhookFailure) throw new Error(RAW_ERROR)
         return options.webhooks ?? { webhooks: 0, sent: 0, errors: 0 }
       },
@@ -235,10 +321,24 @@ function harness(options = {}) {
         exports: compiledModule.exports,
         process: { env },
         Buffer,
-        AbortSignal: options.AbortSignal ?? AbortSignal,
+        AbortController,
+        AbortSignal: options.AbortSignal
+          ? { any: AbortSignal.any, ...options.AbortSignal }
+          : AbortSignal,
         Response,
         URL,
         Date: options.Date ?? Date,
+        setTimeout:
+          path === 'src/lib/execution-budget.ts'
+            ? (options.clock?.setTimeout ?? setTimeout)
+            : setTimeout,
+        clearTimeout:
+          path === 'src/lib/execution-budget.ts'
+            ? (options.clock?.clearTimeout ?? clearTimeout)
+            : clearTimeout,
+        performance: options.performance ?? performance,
+        setInterval,
+        clearInterval,
         console: Object.fromEntries(
           ['info', 'warn', 'error'].map((method) => [method, (...args) => state.logs.push(args)]),
         ),
@@ -247,6 +347,20 @@ function harness(options = {}) {
           return options.fetch ? options.fetch(url, config, state.fetches.length) : json([])
         },
         require(specifier) {
+          if (specifier === '@/lib/webhooks' && options.realWebhooks)
+            return load('src/lib/webhooks.ts')
+          if (specifier === '@/lib/execution-budget') return load('src/lib/execution-budget.ts')
+          if (specifier === '@/lib/ai' && options.realAI) return load('src/lib/ai.ts')
+          if (specifier === '@/lib/ai-resilience') {
+            const resilience = load('src/lib/ai-resilience.ts')
+            return options.aiRuntime
+              ? {
+                  ...resilience,
+                  createAiExecutionContext: (deadline, _, execution) =>
+                    resilience.createAiExecutionContext(deadline, options.aiRuntime, execution),
+                }
+              : resilience
+          }
           if (Object.hasOwn(imports, specifier)) return imports[specifier]
           if (specifier === '@/lib/github') return load('src/lib/github.ts')
           if (specifier === '@/lib/cron-auth') return load('src/lib/cron-auth.ts')
@@ -272,7 +386,7 @@ function harness(options = {}) {
     const body = await response.json()
     // Headers are inspected only in-memory; no credential is printed on success.
     const output = JSON.stringify({ body, logs: state.logs })
-    for (const secret of [TOKEN, CRON_SECRET, RAW_ERROR])
+    for (const secret of [TOKEN, CRON_SECRET, AI_KEY, RAW_ERROR])
       assert.equal(output.includes(secret), false)
     return { response, body }
   }
@@ -558,13 +672,18 @@ test('unexpected processor rejection contributes a real repository failure', asy
 })
 
 test('time budget defers later chunks and reports partial instead of clean completion', async () => {
-  let clockCalls = 0
-  class TestDate extends Date {
-    static now() {
-      return ++clockCalls <= 2 ? 0 : 270_001
-    }
+  let now = 0
+  const h = harness({
+    performance: { now: () => now },
+    techs: Array.from({ length: 7 }, (_, index) => tech(index)),
+    fetch: () => json([]),
+  })
+  const original = h.load('src/lib/release-ingestion.ts').processTechReleases
+  h.load('src/lib/release-ingestion.ts').processTechReleases = async (...args) => {
+    const result = await original(...args)
+    now = 270_001
+    return result
   }
-  const h = harness({ Date: TestDate, techs: Array.from({ length: 7 }, (_, index) => tech(index)) })
   const { response, body } = await h.invoke()
   assert.equal(response.status, 200)
   assert.equal(body.status, 'partial_success')
@@ -931,4 +1050,1150 @@ test('F1.1 custom ingestion keeps optional auth and legacy finalization', async 
   assert.equal(h.state.runs[0].releasesInserted, 1)
   assert.equal(h.state.inserts.length, 1)
   assert.deepEqual(plain(result.insertedReleaseIds), [h.state.inserts[0].id])
+})
+
+function aiSuccess(
+  content = JSON.stringify({ version: 'v1', title: 'release', summary: 'summary' }),
+) {
+  return json({ choices: [{ message: { content } }] })
+}
+
+function aiError(status, headers = {}, metadata = {}, code = status) {
+  return json({ error: { code, message: RAW_ERROR, metadata } }, status, headers)
+}
+
+function aiHarness(options = {}) {
+  let now = Date.parse('2026-10-09T00:00:00Z')
+  const waits = []
+  const timeouts = []
+  const runtime = {
+    now: () => now,
+    sleep: async (ms) => {
+      waits.push(ms)
+      now += ms
+    },
+    random: () => 0.5,
+    signal: (ms) => {
+      timeouts.push(ms)
+      return AbortSignal.timeout(ms)
+    },
+    ...options.runtime,
+  }
+  const h = harness({
+    realAI: true,
+    fetch: () => json([release()]),
+    aiFetch: () => aiSuccess(),
+    ...options,
+    aiRuntime: runtime,
+    Date: class extends Date {
+      static now() {
+        return runtime.now()
+      }
+    },
+  })
+  return {
+    ...h,
+    waits,
+    timeouts,
+    advance: (ms) => {
+      now += ms
+    },
+  }
+}
+
+test('F2 actual SDK summary succeeds once and retains model/schema/persistence', async () => {
+  const h = aiHarness()
+  const { response, body } = await h.invoke()
+  assert.equal(response.status, 200)
+  assert.equal(body.status, 'success')
+  assert.deepEqual(body.ai, { succeeded: 1, failed: 0, attempts: 1, retries: 0, cooldowns: 0 })
+  assert.equal(body.summary.aiOperationsFailed, 0)
+  assert.equal(h.state.aiRequests.length, 1)
+  assert.equal(h.state.aiClients[0].maxRetries, 1) // Advice's client default is unchanged.
+  const payload = JSON.parse(h.state.aiRequests[0].config.body)
+  assert.equal(payload.model, 'deepseek/deepseek-chat')
+  assert.equal(payload.provider.require_parameters, true)
+  assert.equal(payload.response_format.json_schema.strict, true)
+  assert.deepEqual(h.timeouts, [25000])
+  assert.equal(h.state.inserts[0].summary, 'summary')
+  assert.equal(h.state.runs[0].releasesInserted, 1)
+  assert.deepEqual(h.state.dispatched[0], [h.state.inserts[0].id])
+})
+
+for (const [label, headers, delay] of [
+  ['seconds', { 'retry-after': '2' }, 2000],
+  ['HTTP date', { 'retry-after': 'Fri, 09 Oct 2026 00:00:03 GMT' }, 3000],
+  ['missing', {}, 1000],
+  ['malformed', { 'retry-after': 'nonsense' }, 1000],
+  ['negative', { 'retry-after': '-1' }, 1000],
+  ['zero', { 'retry-after': '0' }, 0],
+  ['milliseconds', { 'retry-after-ms': '1500' }, 1500],
+  ['two hints', { 'retry-after': '2', 'retry-after-ms': '1000' }, 2000],
+]) {
+  test(`F2 actual SDK 429 then success respects ${label} Retry-After`, async () => {
+    const h = aiHarness({
+      aiFetch: (_, attempt) => (attempt === 1 ? aiError(429, headers) : aiSuccess()),
+    })
+    const { body } = await h.invoke()
+    assert.equal(body.status, 'success')
+    assert.equal(h.state.aiRequests.length, 2)
+    assert.equal(h.state.aiRequests[1].time - h.state.aiRequests[0].time, delay)
+    assert.deepEqual(h.waits, delay ? [delay] : [])
+    assert.deepEqual(body.ai, { succeeded: 1, failed: 0, attempts: 2, retries: 1, cooldowns: 1 })
+    assert.equal(h.state.inserts.length, 1)
+  })
+}
+
+test('F2 repeated 429 makes exactly three SDK HTTP attempts without stacked retries', async () => {
+  const h = aiHarness({ aiFetch: () => aiError(429) })
+  const { response, body } = await h.invoke()
+  assert.equal(response.status, 502)
+  assert.equal(body.status, 'failed')
+  assert.equal(h.state.aiRequests.length, 3)
+  assert.deepEqual(h.waits, [1000, 2000])
+  assert.deepEqual(body.ai, { succeeded: 0, failed: 1, attempts: 3, retries: 2, cooldowns: 3 })
+  assert.equal(body.summary.aiOperationsFailed, 1)
+  assert.equal(body.errors[0].ai.category, 'RATE_LIMITED')
+  assert.equal(body.errors[0].ai.reason, 'RETRY_EXHAUSTED')
+  assert.equal(body.errors[0].ai.attempt, 3)
+  assert.equal(body.errors[0].releaseId, 1)
+  assert.equal(h.state.inserts.length, 0)
+  assert.equal(h.state.runs[0].status, 'failed')
+  assert.deepEqual(h.state.dispatched[0], [])
+})
+
+for (const metadata of [
+  {
+    provider_name: 'DeepInfra',
+    raw: JSON.stringify({ error: { code: 'engine_overloaded', message: RAW_ERROR } }),
+  },
+  { provider_name: 'StreamLake', error_type: 'provider_overloaded' },
+]) {
+  test(`F2 ${metadata.provider_name} overload recovers with sanitized metadata`, async () => {
+    const h = aiHarness({ aiFetch: (_, n) => (n === 1 ? aiError(429, {}, metadata) : aiSuccess()) })
+    const { body } = await h.invoke()
+    assert.equal(body.status, 'success')
+    assert.equal(h.state.aiRequests.length, 2)
+    const retry = h.state.logs.find(([message]) => message === 'AI summary retry')[1]
+    assert.equal(retry.category, 'PROVIDER_OVERLOADED')
+    assert.equal(retry.upstreamProvider, metadata.provider_name)
+    assert.equal(retry.provider, 'OpenRouter')
+    assert.equal(retry.releaseId, 1)
+    assert.equal(retry.cooldownActivated, true)
+    assert.equal(retry.reason, 'TRANSIENT_FAILURE')
+  })
+}
+
+for (const [status, metadata, category] of [
+  [401, {}, 'AUTHENTICATION_ERROR'],
+  [402, {}, 'QUOTA_OR_CREDIT_EXHAUSTED'],
+  [429, { error_type: 'insufficient_quota' }, 'QUOTA_OR_CREDIT_EXHAUSTED'],
+  [402, { limit_source: 'openrouter_key_limit' }, 'QUOTA_OR_CREDIT_EXHAUSTED'],
+]) {
+  test(`F2 ${status}/${category} never retries and blocks futile queued requests`, async () => {
+    const h = aiHarness({
+      techs: [tech(1), tech(2)],
+      aiFetch: () => aiError(status, { 'retry-after': '1' }, metadata),
+    })
+    const { body } = await h.invoke()
+    assert.equal(body.status, 'failed')
+    assert.equal(body.summary.aiOperationsFailed, 2)
+    assert.equal(h.state.aiRequests.length, 1)
+    assert.deepEqual(h.waits, [])
+    assert.equal(body.errors[0].ai.category, category)
+    assert.equal(body.errors[1].ai.reason, 'EXECUTION_BLOCKED')
+    assert.equal(h.state.inserts.length, 0)
+  })
+}
+
+test('F2 documented transient 402 in-flight budget respects Retry-After without credit retries', async () => {
+  const h = aiHarness({
+    aiFetch: (_, n) =>
+      n === 1
+        ? aiError(402, { 'retry-after': '1' }, { limit_source: 'openrouter_in_flight_budget' })
+        : aiSuccess(),
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'success')
+  assert.deepEqual(h.waits, [1000])
+  assert.equal(h.state.aiRequests.length, 2)
+})
+
+test('F2 six repository processors share a serial AI lane and cooldown after each 429', async () => {
+  let active = 0
+  let peak = 0
+  const h = aiHarness({
+    techs: Array.from({ length: 6 }, (_, i) => tech(i + 1)),
+    aiFetch: async (_, n) => {
+      peak = Math.max(peak, ++active)
+      await Promise.resolve()
+      active--
+      return n % 2 ? aiError(429, { 'retry-after': '1' }) : aiSuccess()
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(peak, 1)
+  assert.equal(body.status, 'success')
+  assert.equal(body.summary.repositoriesAttempted, 6)
+  assert.equal(h.state.fetches.length, 6) // GitHub concurrency/scheduling still independent.
+  assert.equal(h.state.aiRequests.length, 12)
+  assert.deepEqual(h.waits, Array(6).fill(1000))
+  assert.equal(body.ai.cooldowns, 6)
+  assert.equal(body.ai.retries, 6)
+  assert.equal(h.state.inserts.length, 6)
+})
+
+test('F2 exhausted 429 cooldown delays the next queued release before its first HTTP request', async () => {
+  const h = aiHarness({
+    techs: [tech(1), tech(2)],
+    aiFetch: (_, n) => (n <= 3 ? aiError(429) : aiSuccess()),
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'partial_success')
+  assert.deepEqual(h.waits, [1000, 2000, 4000])
+  assert.equal(h.state.aiRequests[3].time - h.state.aiRequests[2].time, 4000)
+  assert.equal(h.state.inserts.length, 1)
+  assert.equal(body.summary.aiOperationsFailed, 1)
+})
+
+test('F2 excessive Retry-After prevents early retries and queued dispatches, with fresh state next run', async () => {
+  const h = aiHarness({
+    techs: [tech(1), tech(2)],
+    aiFetch: (_, n) => (n === 1 ? aiError(429, { 'retry-after': '60' }) : aiSuccess()),
+  })
+  const first = await h.invoke()
+  assert.equal(first.body.status, 'failed')
+  assert.equal(first.body.errors[0].ai.reason, 'RETRY_DELAY_EXCEEDS_WAIT_LIMIT')
+  assert.equal(first.body.errors[1].ai.reason, 'COOLDOWN_EXCEEDS_WAIT_LIMIT')
+  assert.equal(h.state.aiRequests.length, 1)
+  assert.deepEqual(h.waits, [])
+  const next = await h.invoke()
+  assert.equal(next.body.status, 'success')
+  assert.equal(next.body.ai.attempts, 2)
+  assert.equal(h.state.inserts.length, 2)
+})
+
+test('F2 waiting and queued AI work stop at the cron execution deadline', async () => {
+  const h = aiHarness({
+    techs: [tech(1), tech(2)],
+    aiFetch: () => {
+      h.advance(269000)
+      return aiError(429, { 'retry-after': '2' })
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'failed')
+  assert.equal(body.errors[0].ai.reason, 'EXECUTION_DEADLINE')
+  assert.equal(body.errors[1].ai.category, 'EXECUTION_BUDGET_EXCEEDED')
+  assert.equal(h.state.aiRequests.length, 1)
+  assert.deepEqual(h.waits, [])
+  assert.equal(body.summary.aiOperationsFailed, 2)
+  assert.equal(h.state.runs[0].status, 'failed')
+  assert.equal(body.runFinalized, true)
+})
+
+test('F2 SDK timeout cancellation propagates, settles and is not retried as a rate limit', async () => {
+  const timeouts = []
+  const h = aiHarness({
+    runtime: {
+      signal: (ms) => {
+        timeouts.push(ms)
+        return AbortSignal.timeout(5)
+      },
+    },
+    aiFetch: (config) =>
+      new Promise((_, reject) => {
+        config.signal.addEventListener(
+          'abort',
+          () => reject(Object.assign(new Error(RAW_ERROR), { name: 'AbortError' })),
+          { once: true },
+        )
+      }),
+  })
+  const keepAlive = setInterval(() => {}, 100)
+  try {
+    const { body } = await h.invoke()
+    assert.equal(body.status, 'failed')
+    assert.equal(body.errors[0].ai.category, 'TIMEOUT')
+    assert.equal(h.state.aiRequests.length, 1)
+    assert.deepEqual(timeouts, [25000])
+    assert.deepEqual(h.waits, [])
+    assert.equal(body.runFinalized, true)
+  } finally {
+    clearInterval(keepAlive)
+  }
+})
+
+for (const [label, reply] of [
+  ['empty choices', () => json({ choices: [] })],
+  ['missing choices', () => json({})],
+  ['invalid JSON', () => aiSuccess('not json')],
+  ['invalid schema', () => aiSuccess('{}')],
+  ['HTTP 200 error envelope', () => aiError(200, { 'retry-after': '1' }, {}, 429)],
+]) {
+  test(`F2 ${label} is safely classified without becoming a successful insert`, async () => {
+    const h = aiHarness({ aiFetch: reply })
+    const { body } = await h.invoke()
+    const envelope = label === 'HTTP 200 error envelope'
+    assert.equal(body.status, 'failed')
+    assert.equal(body.errors[0].ai.category, envelope ? 'RATE_LIMITED' : 'INVALID_RESPONSE')
+    if (envelope) {
+      assert.equal(body.errors[0].ai.httpStatus, 200)
+      assert.equal(body.errors[0].ai.upstreamCode, 429)
+    }
+    assert.equal(h.state.aiRequests.length, envelope ? 3 : 1)
+    assert.equal(h.state.inserts.length, 0)
+    assert.equal(body.summary.releasesFailed, 1)
+    assert.equal(body.summary.aiOperationsFailed, 1)
+  })
+}
+
+test('F2 late AI retry exhaustion retains committed progress, audit status and exact notification IDs', async () => {
+  const h = aiHarness({
+    fetch: () => json([release('good'), release('bad')]),
+    aiFetch: (_, n) => (n === 1 ? aiSuccess() : aiError(429)),
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'partial_success')
+  assert.equal(body.summary.releasesInserted, 1)
+  assert.equal(body.summary.releasesProcessed, 1)
+  assert.equal(body.summary.releasesFailed, 1)
+  assert.equal(body.summary.aiOperationsFailed, 1)
+  assert.equal(body.releaseCountersComplete, true)
+  assert.equal(h.state.inserts[0].version, 'good')
+  assert.equal(h.state.runs[0].status, 'completed_with_errors')
+  assert.equal(h.state.runs[0].releasesInserted, 1)
+  assert.deepEqual(h.state.dispatched[0], [h.state.inserts[0].id])
+  await h.invoke()
+  assert.equal(h.state.inserts.length, 1)
+  assert.deepEqual(h.state.dispatched[1], [])
+  assert.equal(h.state.runs[0].releasesInserted, 1)
+})
+
+test('F2 non-retry instruction still coordinates a cooldown for other queued AI work', async () => {
+  const h = aiHarness({
+    techs: [tech(1), tech(2)],
+    aiFetch: (_, n) =>
+      n === 1 ? aiError(429, { 'x-should-retry': 'false', 'retry-after': '2' }) : aiSuccess(),
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'partial_success')
+  assert.equal(h.state.aiRequests.length, 2)
+  assert.equal(body.ai.retries, 0)
+  assert.deepEqual(h.waits, [2000])
+  assert.equal(h.state.aiRequests[1].time - h.state.aiRequests[0].time, 2000)
+})
+
+test('F2 unavailable providers/network errors recover, unknown failures are not retried', async () => {
+  for (const unavailable of [
+    () => aiError(503),
+    () => {
+      throw new Error('Connection failure')
+    },
+  ]) {
+    const h = aiHarness({ aiFetch: (_, n) => (n === 1 ? unavailable() : aiSuccess()) })
+    const { body } = await h.invoke()
+    assert.equal(body.status, 'success')
+    assert.equal(h.state.aiRequests.length, 2)
+    assert.equal(
+      h.state.logs.find(([message]) => message === 'AI summary retry')[1].category,
+      'PROVIDER_UNAVAILABLE',
+    )
+  }
+  const h = aiHarness({ aiFetch: () => aiError(400) })
+  const { body } = await h.invoke()
+  assert.equal(body.errors[0].ai.category, 'UNKNOWN_ERROR')
+  assert.equal(h.state.aiRequests.length, 1)
+})
+
+test('F2 jitter varies bounded retry waits instead of synchronizing executions', async () => {
+  for (const [random, expected] of [
+    [0, 750],
+    [1, 1250],
+  ]) {
+    const h = aiHarness({
+      runtime: { random: () => random },
+      aiFetch: (_, n) => (n === 1 ? aiError(429) : aiSuccess()),
+    })
+    await h.invoke()
+    assert.deepEqual(h.waits, [expected])
+  }
+})
+
+test('F2 retry request timeout is reduced to remaining execution time', async () => {
+  const h = aiHarness({
+    aiFetch: (_, n) => {
+      if (n > 1) return aiSuccess()
+      h.advance(260000)
+      return aiError(429, { 'retry-after': '2' })
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'success')
+  assert.deepEqual(h.timeouts, [25000, 8000])
+  assert.deepEqual(h.waits, [2000])
+})
+
+test('F2 missing key fails closed without HTTP, AI success followed by insert failure stays uncommitted', async () => {
+  const missing = aiHarness({ env: { OPENROUTER_API_KEY: undefined } })
+  const noKey = await missing.invoke()
+  assert.equal(noKey.body.errors[0].ai.category, 'AUTHENTICATION_ERROR')
+  assert.equal(missing.state.aiRequests.length, 0)
+  assert.equal(noKey.body.summary.aiOperationsFailed, 1)
+  const h = aiHarness({ insertFailure: Object.assign(new Error(RAW_ERROR), { code: '23503' }) })
+  const { body } = await h.invoke()
+  assert.equal(body.ai.succeeded, 1)
+  assert.equal(body.summary.aiOperationsFailed, 0)
+  assert.equal(body.summary.releasesInserted, 0)
+  assert.equal(body.summary.releasesFailed, 1)
+  assert.equal(h.state.inserts.length, 0)
+  assert.equal(h.state.runs[0].releasesInserted, 0)
+  assert.deepEqual(h.state.dispatched[0], [])
+})
+
+test('F2 deadline signal also cancels a stalled SDK response body after headers', async () => {
+  const h = aiHarness({
+    runtime: { signal: () => AbortSignal.timeout(5) },
+    aiFetch: (config) =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            config.signal.addEventListener(
+              'abort',
+              () => controller.error(new DOMException('cancelled', 'AbortError')),
+              { once: true },
+            )
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+  })
+  const keepAlive = setInterval(() => {}, 100)
+  try {
+    const { body } = await h.invoke()
+    assert.equal(body.errors[0].ai.category, 'TIMEOUT')
+    assert.equal(h.state.aiRequests.length, 1)
+    assert.equal(body.runFinalized, true)
+    assert.equal(h.state.inserts.length, 0)
+  } finally {
+    clearInterval(keepAlive)
+  }
+})
+
+test('F2 concurrency tuning is bounded at two and shares cooldown across active lanes', async () => {
+  let active = 0
+  let peak = 0
+  const h = aiHarness({
+    runtime: { concurrency: 2 },
+    techs: Array.from({ length: 6 }, (_, i) => tech(i + 1)),
+    aiFetch: async (_, n) => {
+      peak = Math.max(peak, ++active)
+      await Promise.resolve()
+      active--
+      return n <= 2 ? aiError(429, { 'retry-after': '1' }) : aiSuccess()
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(peak, 2)
+  assert.equal(body.status, 'success')
+  assert.equal(h.state.aiRequests.length, 8)
+  assert.equal(body.ai.retries, 2)
+  assert.ok(
+    h.state.aiRequests
+      .slice(2)
+      .every((request) => request.time >= h.state.aiRequests[1].time + 1000),
+  )
+})
+
+test('F2 shared authentication block also prevents a late retry from another active lane', async () => {
+  let releasePeer
+  const pending = new Promise((resolve) => {
+    releasePeer = () => resolve(aiError(429))
+  })
+  const h = aiHarness({
+    runtime: { concurrency: 2 },
+    techs: [tech(1), tech(2)],
+    aiFetch: (_, n) => (n === 1 ? aiError(401) : pending),
+  })
+  const push = h.state.logs.push
+  h.state.logs.push = function (entry) {
+    if (entry[0] === 'AI summary failed' && entry[1].category === 'AUTHENTICATION_ERROR')
+      releasePeer()
+    return push.call(this, entry)
+  }
+  const { body } = await h.invoke()
+  assert.equal(h.state.aiRequests.length, 2)
+  assert.equal(body.status, 'failed')
+  assert.equal(body.summary.aiOperationsFailed, 2)
+  assert.equal(body.errors[1].ai.reason, 'EXECUTION_BLOCKED')
+  assert.deepEqual(h.waits, [])
+})
+
+test('F2 preprocessing failure after a committed summary is counted without another HTTP request', async () => {
+  const h = aiHarness({ fetch: () => json([release('good'), release('bad', { body: 42 })]) })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'partial_success')
+  assert.equal(body.summary.aiOperationsFailed, 1)
+  assert.equal(body.summary.releasesInserted, 1)
+  assert.equal(body.errors[0].ai.category, 'UNKNOWN_ERROR')
+  assert.equal(h.state.aiRequests.length, 1)
+  assert.equal(h.state.runs[0].releasesInserted, 1)
+  assert.equal(h.state.runs[0].status, 'completed_with_errors')
+  assert.deepEqual(h.state.dispatched[0], [h.state.inserts[0].id])
+})
+
+test('F2.1 choice-level HTTP 200 error takes precedence over valid summary content', async () => {
+  const h = aiHarness({
+    aiFetch: (_, n) =>
+      n === 1
+        ? json(
+            {
+              choices: [
+                {
+                  finish_reason: 'error',
+                  error: { code: 429, message: RAW_ERROR },
+                  message: {
+                    content: JSON.stringify({
+                      version: 'v1',
+                      title: 'release',
+                      summary: 'untrusted',
+                    }),
+                  },
+                },
+              ],
+            },
+            200,
+            { 'retry-after': '1' },
+          )
+        : aiSuccess(),
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'success')
+  assert.equal(h.state.aiRequests.length, 2)
+  assert.equal(h.state.inserts[0].summary, 'summary')
+  assert.equal(body.ai.retries, 1)
+})
+
+for (const status of [429, 503]) {
+  test(`F2.1 aborted ${status} error body is terminal without cooldown or retry`, async () => {
+    const h = aiHarness({
+      runtime: { signal: () => AbortSignal.timeout(5) },
+      aiFetch: (config) =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              config.signal.addEventListener(
+                'abort',
+                () => controller.error(new DOMException('cancelled', 'AbortError')),
+                { once: true },
+              )
+            },
+          }),
+          { status, headers: { 'content-type': 'application/json' } },
+        ),
+    })
+    const keepAlive = setInterval(() => {}, 100)
+    try {
+      const { body } = await h.invoke()
+      assert.equal(body.errors[0].ai.category, 'TIMEOUT')
+      assert.equal(body.errors[0].ai.httpStatus, status)
+      assert.equal(h.state.aiRequests.length, 1)
+      assert.equal(body.ai.cooldowns, 0)
+      assert.equal(body.ai.retries, 0)
+      assert.deepEqual(h.waits, [])
+      assert.equal(h.state.inserts.length, 0)
+      assert.equal(body.runFinalized, true)
+    } finally {
+      clearInterval(keepAlive)
+    }
+  })
+}
+
+function manualClock() {
+  let now = 0
+  let next = 0
+  const timers = new Map()
+  return {
+    now: () => now,
+    setTimeout(fn, ms) {
+      const id = { id: ++next, unref() {} }
+      timers.set(id, { at: now + ms, fn })
+      return id
+    },
+    clearTimeout(id) {
+      timers.delete(id)
+    },
+    advance(ms) {
+      now += ms
+      for (const [id, timer] of timers) {
+        if (timer.at <= now) {
+          timers.delete(id)
+          timer.fn()
+        }
+      }
+    },
+    get pending() {
+      return timers.size
+    },
+  }
+}
+
+async function until(predicate) {
+  for (let i = 0; i < 100; i++) {
+    if (predicate()) return
+    await Promise.resolve()
+  }
+  assert.fail('Expected operation did not start')
+}
+
+function cancelledWait(signal) {
+  return new Promise((_, reject) => {
+    if (signal.aborted) return reject(signal.reason)
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+  })
+}
+
+test('F2.1 discovery cancellation settles all processors and prevents retry/new chunks', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    techs: Array.from({ length: 7 }, (_, i) => tech(i)),
+    fetch: (_, config) => cancelledWait(config.signal),
+  })
+  const invocation = h.invoke()
+  await until(() => h.state.fetches.length === 6)
+  clock.advance(270000)
+  const { body } = await invocation
+  assert.equal(body.status, 'failed')
+  assert.equal(body.runFinalized, true)
+  assert.equal(body.summary.repositoriesAttempted, 6)
+  assert.equal(body.summary.repositoriesFailed, 6)
+  assert.equal(body.summary.repositoriesDeferred, 1)
+  assert.equal(h.state.fetches.length, 6)
+  assert.equal(h.state.ai.length, 0)
+  assert.ok(body.errors.every((error) => error.category === 'TIME_BUDGET'))
+  assert.equal(body.timings.githubDiscovery.operations, 6)
+  assert.equal(body.timings.githubDiscovery.active, 0)
+  assert.equal(h.state.activeOperations, 0)
+  assert.equal(clock.pending, 0)
+})
+
+test('F2.1 GitHub 5xx at the work deadline cannot start its normal retry', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    fetch: () => {
+      clock.advance(270000)
+      return json({}, 503)
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(h.state.fetches.length, 1)
+  assert.equal(body.errors[0].category, 'TIME_BUDGET')
+  assert.equal(body.runFinalized, true)
+})
+
+test('F2.1 shared deadline aborts active AI and terminates queued work without more HTTP', async () => {
+  const clock = manualClock()
+  const h = aiHarness({
+    clock,
+    performance: clock,
+    techs: [tech(1), tech(2)],
+    fetch: () => json([release('v1'), release('v2')]),
+    aiFetch: (config) => cancelledWait(config.signal),
+  })
+  const invocation = h.invoke()
+  await until(
+    () =>
+      h.state.aiRequests.length === 1 &&
+      h.state.dbOperations.filter((op) => op.stage === 'lookup').length === 2,
+  )
+  clock.advance(270000)
+  const { body } = await invocation
+  assert.equal(body.status, 'failed')
+  assert.equal(body.ai.failed, 2)
+  assert.equal(body.ai.cooldowns, 0)
+  assert.equal(body.ai.attempts, 1)
+  assert.equal(h.state.aiRequests.length, 1)
+  assert.equal(body.summary.releasesDiscovered, 4)
+  assert.equal(body.summary.releasesCancelled, 2)
+  assert.equal(body.summary.releasesFailed, 2)
+  assert.equal(body.summary.releasesDeferred, 2)
+  assert.equal(body.summary.releasesInserted, 0)
+  assert.equal(body.releaseCountersComplete, true)
+  assert.equal(body.runFinalized, true)
+  assert.equal(h.state.runs[0].status, 'failed')
+  assert.ok(Object.values(body.timings).every((stage) => stage.active === 0))
+  assert.equal(clock.pending, 0)
+})
+
+for (const label of ['during cooldown', 'immediately before retry']) {
+  test(`F2.1 cancellation ${label} prevents another attempt or queued dispatch`, async () => {
+    const clock = manualClock()
+    let waitStarted = false
+    const h = aiHarness({
+      clock,
+      performance: clock,
+      techs: [tech(1), tech(2)],
+      runtime: {
+        sleep: async (_, signal) => {
+          waitStarted = true
+          if (label === 'during cooldown') return cancelledWait(signal)
+          clock.advance(270000)
+        },
+      },
+      aiFetch: () => aiError(429, { 'retry-after': '1' }),
+    })
+    const invocation = h.invoke()
+    await until(() => waitStarted)
+    if (label === 'during cooldown') clock.advance(270000)
+    const { body } = await invocation
+    assert.equal(h.state.aiRequests.length, 1)
+    assert.equal(body.ai.retries, 0)
+    assert.equal(body.ai.failed, 2)
+    assert.equal(body.status, 'failed')
+    assert.equal(body.runFinalized, true)
+    assert.equal(body.timings.aiRetryWait.active, 0)
+  })
+}
+
+test('F2.1 deadline before persistence prevents insert; earlier commits retain exact IDs and deduplicate later', async () => {
+  const clock = manualClock()
+  let calls = 0
+  const h = harness({
+    clock,
+    performance: clock,
+    fetch: () => json([release('good'), release('late'), release('deferred')]),
+    ai: () => {
+      if (++calls === 2) clock.advance(270000)
+      return { summary: 'summary' }
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'partial_success')
+  assert.equal(body.summary.releasesInserted, 1)
+  assert.equal(body.summary.releasesProcessed, 1)
+  assert.equal(body.summary.releasesFailed, 1)
+  assert.equal(body.summary.releasesCancelled, 1)
+  assert.equal(body.summary.releasesDeferred, 1)
+  assert.equal(body.releaseCountersComplete, true)
+  assert.equal(h.state.dbOperations.filter((op) => op.stage === 'insert').length, 1)
+  assert.equal(h.state.runs[0].releasesInserted, 1)
+  assert.equal(h.state.runs[0].status, 'completed_with_errors')
+  assert.deepEqual(h.state.dispatched[0], [h.state.inserts[0].id])
+  assert.equal(body.runFinalized, true)
+  assert.equal(h.state.activeOperations, 0)
+  await h.invoke()
+  assert.equal(h.state.inserts.filter((row) => row.version === 'good').length, 1)
+  assert.equal(h.state.dispatched[1].includes(h.state.inserts[0].id), false)
+})
+
+test('F2.1 stalled insert aborts before cleanup, reports uncertain write and preserves acknowledged peer', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    fetch: () => json([release('good'), release('unknown')]),
+    dbOperation: ({ stage, signal, values }) =>
+      stage === 'insert' && values.version === 'unknown' ? cancelledWait(signal) : undefined,
+  })
+  const invocation = h.invoke()
+  await until(() => h.state.dbOperations.filter((op) => op.stage === 'insert').length === 2)
+  clock.advance(270000)
+  const { body } = await invocation
+  assert.equal(body.status, 'partial_success')
+  assert.equal(body.summary.releasesInserted, 1)
+  assert.equal(body.summary.releasesFailed, 1)
+  assert.equal(body.summary.releasesCancelled, 1)
+  assert.equal(body.releaseCountersComplete, false)
+  assert.equal(h.state.inserts.length, 1)
+  assert.equal(h.state.runs[0].releasesInserted, 1)
+  assert.equal(body.runFinalized, true)
+  assert.equal(h.state.activeOperations, 0)
+  assert.deepEqual(h.state.dispatched[0], [h.state.inserts[0].id])
+  assert.equal(body.timings.databaseWrite.active, 0)
+})
+
+test('F2.1 finalization is cancelled by its separate reserve without losing successful inserts', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    fetch: () => json([release()]),
+    dbOperation: ({ stage, signal }) =>
+      stage === 'finalization' ? cancelledWait(signal) : undefined,
+  })
+  const invocation = h.invoke()
+  await until(() => h.state.dbOperations.some((op) => op.stage === 'finalization'))
+  clock.advance(285000)
+  const { response, body } = await invocation
+  assert.equal(response.status, 500)
+  assert.equal(body.status, 'failed')
+  assert.equal(body.runFinalized, false)
+  assert.equal(body.summary.releasesInserted, 1)
+  assert.equal(h.state.inserts.length, 1)
+  assert.equal(h.state.runs[0].status, 'running')
+  assert.equal(h.state.runs[0].releasesInserted, 0)
+  assert.equal(body.timings.finalization.active, 0)
+  assert.equal(h.state.activeOperations, 0)
+  assert.deepEqual(h.state.dispatched[0], [h.state.inserts[0].id])
+  assert.equal(clock.pending, 0)
+})
+
+test('F2.1 selection failure waits for a pending peer before cleanup', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    setupFailure: true,
+    dbOperation: ({ stage, signal }) => (stage === 'followers' ? cancelledWait(signal) : undefined),
+  })
+  const invocation = h.invoke()
+  await until(() => h.state.activeOperations === 1)
+  clock.advance(270000)
+  const { body } = await invocation
+  assert.equal(body.status, 'failed')
+  assert.equal(h.state.activeOperations, 0)
+  assert.equal(h.state.fetches.length, 0)
+  assert.equal(h.state.runs.length, 0)
+  assert.equal(clock.pending, 0)
+})
+
+test('F2.1 filtering separates skipped entries from failed, processed and deferred work', async () => {
+  const h = harness({
+    fetch: () =>
+      json([
+        release('draft', { draft: true }),
+        release('unpublished', { published_at: null }),
+        release('good'),
+        null,
+      ]),
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.summary.releasesSkipped, 2)
+  assert.equal(body.summary.releasesProcessed, 1)
+  assert.equal(body.summary.releasesFailed, 1)
+  assert.equal(body.summary.releasesDeferred, 0)
+  assert.equal(body.summary.releasesDiscovered, 4)
+  assert.equal(body.status, 'partial_success')
+})
+
+for (const [label, envelope, attempts, category] of [
+  [
+    'choice overload',
+    {
+      choices: [
+        {
+          finish_reason: 'error',
+          error: {
+            code: 503,
+            message: RAW_ERROR,
+            metadata: { error_type: 'provider_overloaded', provider_name: 'DeepInfra' },
+          },
+        },
+      ],
+    },
+    3,
+    'PROVIDER_OVERLOADED',
+  ],
+  [
+    'choice authentication',
+    { choices: [{ finish_reason: 'error', error: { code: 401, message: RAW_ERROR } }] },
+    1,
+    'AUTHENTICATION_ERROR',
+  ],
+  ['malformed top-level', { error: { message: RAW_ERROR } }, 1, 'INVALID_RESPONSE'],
+  [
+    'malformed choice',
+    { choices: [{ finish_reason: 'error', error: 'bad', message: { content: '{}' } }] },
+    1,
+    'INVALID_RESPONSE',
+  ],
+  [
+    'missing error details',
+    { choices: [{ finish_reason: 'error', message: { content: '{}' } }] },
+    1,
+    'INVALID_RESPONSE',
+  ],
+]) {
+  test(`F2.1 HTTP 200 ${label} preserves sanitized classification and never inserts`, async () => {
+    const h = aiHarness({ aiFetch: () => json(envelope) })
+    const { body } = await h.invoke()
+    assert.equal(body.status, 'failed')
+    assert.equal(body.errors[0].ai.category, category)
+    assert.equal(body.errors[0].ai.httpStatus, 200)
+    assert.equal(h.state.aiRequests.length, attempts)
+    assert.equal(h.state.inserts.length, 0)
+    assert.equal(h.state.runs[0].status, 'failed')
+    assert.deepEqual(h.state.dispatched[0], [])
+  })
+}
+
+test('F2.1 summary content containing an extra error field remains valid schema output', async () => {
+  const h = aiHarness({
+    aiFetch: () =>
+      aiSuccess(
+        JSON.stringify({
+          version: 'v1',
+          title: 'release',
+          summary: 'valid',
+          error: 'ordinary user content',
+        }),
+      ),
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'success')
+  assert.equal(h.state.aiRequests.length, 1)
+  assert.equal(h.state.inserts[0].summary, 'valid')
+})
+
+test('F2.1 actual Neon HTTP/Drizzle adapter receives scoped cancellation without changing shared callers', async () => {
+  const driver = nativeRequire('@neondatabase/serverless')
+  const drizzle = nativeRequire('drizzle-orm/neon-http')
+  const orm = nativeRequire('drizzle-orm')
+  const priorFetch = driver.neonConfig.fetchFunction
+  const requests = []
+  driver.neonConfig.fetchFunction = (_, config) => {
+    requests.push(config)
+    return cancelledWait(config.signal)
+  }
+  try {
+    const source = readFileSync(new URL('../src/db/index.ts', import.meta.url), 'utf8')
+    const compiled = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText
+    const compiledModule = { exports: {} }
+    runInNewContext(compiled, {
+      module: compiledModule,
+      exports: compiledModule.exports,
+      process: {
+        env: { DATABASE_URL: 'postgresql://synthetic:synthetic@db.example.test/example' },
+      },
+      require: (id) =>
+        ({ '@neondatabase/serverless': driver, 'drizzle-orm/neon-http': drizzle, './schema': {} })[
+          id
+        ],
+    })
+    const controller = new AbortController()
+    const db = compiledModule.exports.getDb(controller.signal)
+    assert.equal(compiledModule.exports.getDb(controller.signal), db)
+    assert.notEqual(compiledModule.exports.getDb(), db)
+    assert.equal(compiledModule.exports.getDb(), compiledModule.exports.getDb())
+    const operation = db.execute(orm.sql`select 1`)
+    const rejected = assert.rejects(operation)
+    await until(() => requests.length === 1)
+    assert.equal(requests[0].signal, controller.signal)
+    controller.abort(new Error('synthetic cancellation'))
+    await rejected
+    assert.equal(requests.length, 1)
+    assert.throws(() => compiledModule.exports.getDb(controller.signal))
+  } finally {
+    driver.neonConfig.fetchFunction = priorFetch
+  }
+})
+
+const notificationRelease = {
+  id: 'release-0',
+  techId: '1',
+  techName: 'Repo 1',
+  version: 'v1',
+  title: 'release',
+  summary: 'summary',
+  importanceLevel: 'high',
+  breakingChanges: [],
+  rawReleaseUrl: 'https://github.com/org/repo/releases/tag/v1',
+}
+const notificationSubscription = {
+  webhookId: 'webhook-1',
+  kind: 'slack',
+  url: 'https://hooks.slack.com/services/synthetic',
+  minImportance: 'medium',
+  techId: '1',
+}
+
+for (const stage of ['notificationReleases', 'notificationSubscriptions']) {
+  test(`F2.1 actual webhook ${stage} preparation cancels at cleanup deadline after finalized ingestion`, async () => {
+    const clock = manualClock()
+    const h = harness({
+      clock,
+      performance: clock,
+      realWebhooks: true,
+      notificationReleases: [notificationRelease],
+      notificationSubscriptions: [notificationSubscription],
+      fetch: () => json([release()]),
+      dbOperation: ({ stage: current, signal }) =>
+        current === stage ? cancelledWait(signal) : undefined,
+    })
+    const invocation = h.invoke()
+    await until(() => h.state.dbOperations.some((op) => op.stage === stage))
+    assert.equal(h.state.runs[0].status, 'completed')
+    clock.advance(295000)
+    const { body } = await invocation
+    assert.equal(body.status, 'partial_success')
+    assert.equal(body.runFinalized, true)
+    assert.equal(body.webhooks.deadlineReached, true)
+    assert.equal(body.webhooks.errors, 1)
+    assert.equal(body.summary.releasesInserted, 1)
+    assert.equal(h.state.fetches.length, 1)
+    assert.equal(h.state.activeOperations, 0)
+    assert.equal(body.timings.notificationPreparation.active, 0)
+    assert.equal(clock.pending, 0)
+  })
+}
+
+test('F2.1 actual webhook delivery cancellation prevents later sends and leaves completed ingestion intact', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    realWebhooks: true,
+    notificationReleases: [notificationRelease],
+    notificationSubscriptions: [
+      notificationSubscription,
+      { ...notificationSubscription, webhookId: 'webhook-2' },
+    ],
+    fetch: (url, config) =>
+      url.startsWith('https://hooks.slack.com/') ? cancelledWait(config.signal) : json([release()]),
+  })
+  const invocation = h.invoke()
+  await until(() => h.state.fetches.length === 2)
+  assert.equal(h.state.runs[0].status, 'completed')
+  clock.advance(295000)
+  const { body } = await invocation
+  assert.equal(body.status, 'partial_success')
+  assert.equal(body.webhooks.webhooks, 1)
+  assert.equal(body.webhooks.sent, 0)
+  assert.equal(body.webhooks.errors, 1)
+  assert.equal(body.webhooks.deferred, 1)
+  assert.equal(h.state.fetches.length, 2)
+  assert.equal(h.state.runs[0].releasesInserted, 1)
+  assert.equal(body.timings.notificationDelivery.active, 0)
+  assert.equal(clock.pending, 0)
+})
+
+test('F2.1 an acknowledged insert at the cutoff remains committed and only later work is deferred', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    fetch: () => json([release('acknowledged'), release('deferred')]),
+    dbAcknowledged: ({ stage }) => {
+      if (stage === 'insert') clock.advance(270000)
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'partial_success')
+  assert.equal(body.summary.releasesInserted, 1)
+  assert.equal(body.summary.releasesProcessed, 1)
+  assert.equal(body.summary.releasesDeferred, 1)
+  assert.equal(body.summary.releasesFailed, 0)
+  assert.equal(body.summary.releasesCancelled, 0)
+  assert.equal(body.releaseCountersComplete, true)
+  assert.equal(h.state.runs[0].releasesInserted, 1)
+  assert.deepEqual(h.state.dispatched[0], [h.state.inserts[0].id])
+})
+
+test('F2.1 confirmed GitHub 401 remains global even when the work cutoff fires concurrently', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    fetch: () => {
+      clock.advance(270000)
+      return json({}, 401)
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'failed')
+  assert.equal(body.errors[0].category, 'GITHUB_AUTH')
+  assert.equal(body.errors[0].scope, 'global')
+  assert.equal(h.state.runs[0].status, 'failed')
+  assert.equal(h.state.fetches.length, 1)
+})
+
+test('F2.1 confirmed database connection error remains global at the cutoff', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    fetch: () => json([release()]),
+    dbOperation: ({ stage }) => {
+      if (stage === 'insert') {
+        clock.advance(270000)
+        throw Object.assign(new Error(RAW_ERROR), { code: '08006' })
+      }
+    },
+  })
+  const { response, body } = await h.invoke()
+  assert.equal(response.status, 500)
+  assert.equal(body.status, 'failed')
+  assert.equal(body.errors[0].category, 'DATABASE')
+  assert.equal(body.errors[0].scope, 'global')
+  assert.equal(body.releaseCountersComplete, false)
+  assert.equal(h.state.runs[0].status, 'failed')
+  assert.equal(h.state.inserts.length, 0)
+})
+
+test('F2.1 near-cutoff GitHub success defers releases before lookup or AI without false failures', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    fetch: () => {
+      clock.advance(269500)
+      return json([release('v1'), release('v2')])
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'failed')
+  assert.equal(body.summary.releasesDiscovered, 2)
+  assert.equal(body.summary.releasesDeferred, 2)
+  assert.equal(body.summary.releasesFailed, 0)
+  assert.equal(body.summary.releasesCancelled, 0)
+  assert.equal(h.state.ai.length, 0)
+  assert.equal(h.state.dbOperations.filter((op) => op.stage === 'lookup').length, 0)
+  assert.equal(body.runFinalized, true)
+})
+
+test('F2.1 fractional monotonic remaining time becomes a valid integer request timeout', async () => {
+  const clock = manualClock()
+  const h = aiHarness({
+    clock,
+    performance: clock,
+    fetch: () => {
+      clock.advance(257500.25)
+      return json([release()])
+    },
+  })
+  const { body } = await h.invoke()
+  assert.equal(body.status, 'success')
+  assert.deepEqual(h.timeouts, [12499])
+  assert.equal(h.state.inserts.length, 1)
+})
+
+test('F2.1 default retry sleep is actually cancelled, disposed and awaited before finalization', async () => {
+  const clock = manualClock()
+  const h = harness({
+    clock,
+    performance: clock,
+    realAI: true,
+    techs: [tech(1), tech(2)],
+    fetch: () => json([release()]),
+    aiFetch: () => aiError(429, { 'retry-after': '1' }),
+  })
+  const invocation = h.invoke()
+  await until(() => clock.pending === 4) // Three phase timers and the actual retry sleep.
+  clock.advance(270000)
+  const { body } = await invocation
+  assert.equal(body.status, 'failed')
+  assert.equal(body.ai.attempts, 1)
+  assert.equal(body.ai.retries, 0)
+  assert.equal(body.ai.failed, 2)
+  assert.equal(h.state.aiRequests.length, 1)
+  assert.equal(body.runFinalized, true)
+  assert.equal(body.timings.aiRetryWait.operations, 1)
+  assert.equal(body.timings.aiRetryWait.active, 0)
+  assert.equal(clock.pending, 0)
 })
