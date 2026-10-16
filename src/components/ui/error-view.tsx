@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { RefreshIcon } from 'hugeicons-react'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 type ErrorViewProps = {
   error: Error & { digest?: string }
@@ -32,6 +33,7 @@ export function ErrorView({
           <Link href="/" className="hover:opacity-80 transition-opacity">
             <Logo size="sm" />
           </Link>
+          <ThemeSwitcher />
           <span className="font-mono text-[11px] text-fade">exit code 1</span>
         </div>
 

@@ -5,6 +5,7 @@ import { ArrowLeft01Icon, ArrowUp01Icon, Link01Icon, RssIcon } from 'hugeicons-r
 
 import { DigestSignupForm } from '@/components/landing/digest-signup-form'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import {
   getPublicStackPage,
   getPublicStackSlugs,
@@ -122,7 +123,7 @@ export default async function StackPage({ params, searchParams }: Props) {
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <Logo size="md" />
         </Link>
-        <nav className="flex items-center gap-4 font-mono text-[11px] text-fade">
+        <nav className="flex items-center gap-2 sm:gap-4 font-mono text-[11px] text-fade">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 hover:text-dust transition-colors"
@@ -133,6 +134,7 @@ export default async function StackPage({ params, searchParams }: Props) {
           <Link href="/sign-in" className="text-lime hover:underline">
             track stack
           </Link>
+          <ThemeSwitcher />
         </nav>
       </header>
 

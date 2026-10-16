@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft01Icon } from 'hugeicons-react'
 
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { getRecentFetchRuns, type FetchRunRow } from '@/lib/release-ingestion'
 
 export const metadata: Metadata = {
@@ -52,7 +53,7 @@ export default async function StatusPage() {
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <Logo size="md" />
         </Link>
-        <nav className="flex items-center gap-4 font-mono text-[11px] text-fade">
+        <nav className="flex items-center gap-2 sm:gap-4 font-mono text-[11px] text-fade">
           <Link href="/" className="inline-flex items-center gap-1.5 hover:text-dust transition-colors">
             <ArrowLeft01Icon className="w-3 h-3" />
             cd ..
@@ -60,6 +61,7 @@ export default async function StatusPage() {
           <Link href="/stacks" className="hover:text-dust transition-colors">
             stacks
           </Link>
+          <ThemeSwitcher />
         </nav>
       </header>
 

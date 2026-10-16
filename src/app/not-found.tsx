@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 export const metadata: Metadata = {
   title: '404 — route not found',
@@ -15,6 +16,7 @@ export default function NotFound() {
           <Link href="/" className="hover:opacity-80 transition-opacity">
             <Logo size="sm" />
           </Link>
+          <ThemeSwitcher />
           <span className="font-mono text-[11px] text-fade">http 404</span>
         </div>
 

@@ -1,7 +1,7 @@
 # Design system
 
 **Status:** current  
-**Last verified:** 2026-05-31 (code + config in repo)
+**Last verified:** 2026-10-16 (theme architecture + tokens)
 
 StackPulse **UI design system** and application architecture. Read this before adding pages, components, or visual changes so new work matches the terminal-inspired product shell.
 
@@ -87,7 +87,7 @@ flowchart TB
 
 **Terminal / dev-workspace aesthetic** — not a generic SaaS dashboard.
 
-- Dark void background with dotted grid + subtle noise (`globals.css` `body::before/after`)
+- Dark void or off-white background with dotted grid + subtle noise (`globals.css` `body::before/after`)
 - Monospace voice for headings, labels, CLI copy, errors
 - “Window chrome” panels: traffic-light dots, title bars, faux shell paths (`~/dashboard/feed`)
 - Syntax-inspired accents on semantic meaning (lime = primary action, rose = danger/breaking)
@@ -95,18 +95,24 @@ flowchart TB
 
 **Do not introduce:**
 
-- Light mode (single dark theme only)
 - Linear gradient backgrounds (project rule)
 - Generic purple-on-white AI landing patterns
 - Raw hex colors in components — use design tokens below
 
 ### Color tokens
 
-Defined in `src/app/globals.css` `@theme` and `:root`. Use Tailwind classes, not hardcoded hex in JSX (except fixed traffic-light dot colors in `win-dots`).
+Theme values live in `src/app/globals.css`: `:root` is the original Dark palette;
+`:root[data-theme='light']` overrides it with off-white surfaces, charcoal text, and
+deeper green/syntax accents. Tailwind v4 `@theme inline` aliases map `--color-*`
+to these variables, so existing utilities resolve the active palette. shadcn semantic
+aliases use the same values; do not define a second palette.
+
+Use Tailwind classes or `var(--token)` in SVG/inline styles, not hardcoded hex in JSX.
+Fixed traffic-light dots, favicons, and social images can retain their brand palette.
 
 | Token | Tailwind | Role |
 |-------|----------|------|
-| `--void` | `bg-void`, `text-void` | Page background, text on lime buttons |
+| `--void` | `bg-void`, `text-void` | Page background, contrasting text on lime/rose buttons |
 | `--shade` | `bg-shade` | Panel/input background |
 | `--lift` | `bg-lift` | Hover surfaces |
 | `--panel` | `bg-panel` | Elevated panels |
@@ -125,6 +131,35 @@ Defined in `src/app/globals.css` `@theme` and `:root`. Use Tailwind classes, not
 | `--violet`, `--magenta` | sparingly | Accent only |
 
 shadcn semantic aliases (`primary`, `destructive`, `border`, etc.) map to the same palette — prefer **named tokens** (`text-dust`, `border-line`) in product UI for consistency with existing pages.
+
+### Theme behavior and compatible components
+
+- **Dark** is the default for first-time visitors, regardless of OS preference.
+- **Light** is an explicit alternative; **System** follows `prefers-color-scheme`
+  and updates while the app is open.
+- `components/theme-provider.tsx` wraps the existing providers with `next-themes`.
+  It saves the selection (`dark`, `light`, `system`) in localStorage under
+  `stackpulse-theme`, shared across tabs, without auth, cookies, or database writes.
+- The resolved theme is `data-theme="dark|light"` on `<html>`. The provider's inline
+  script applies it before content paints; only `<html>` suppresses the expected
+  attribute hydration difference. Native controls use the matching `color-scheme`.
+- Reuse `ThemeSwitcher` in navigation, including mobile and loading/error shells.
+  Its Radix radio menu supplies keyboard navigation, selected state, and focus return.
+  Keep theme-dependent rendering out of SSR markup; the switcher's two icons use CSS.
+- Use the existing tokens for every surface, badge, input, SVG, and focus state.
+  `bg-lime text-void` and `bg-rose text-void` work in both palettes. Do not use
+  white/black literals to invert buttons. Avoid fading meaningful text with opacity.
+- Add a semantic color only when existing roles cannot express the meaning: define
+  its Dark value in `:root`, its Light value in the light override, then its
+  `--color-*` alias in `@theme inline`. Verify text, tinted badges, inverted buttons,
+  hover, and focus contrast in both themes. `dark:` targets the root attribute,
+  never the OS directly.
+- Grid dots, noise blend/opacity, and hero shadows have theme variables. Keep these
+  restrained and preserve reduced-motion behavior; do not animate palette changes.
+
+Verification: `pnpm test:theme` covers the server-rendered initialization script and
+light-palette contrast. Also check persistence, System changes, keyboard selection,
+public/app navigation, dropdowns/forms, and narrow layouts in a real browser.
 
 ### Semantic badges (keep in sync)
 
@@ -191,6 +226,7 @@ Respect `prefers-reduced-motion` (already in `globals.css`).
 | Component | Path | Use |
 |-----------|------|-----|
 | `Logo` | `components/logo.tsx` | Brand mark + wordmark |
+| `ThemeSwitcher` | `components/theme-switcher.tsx` | Shared Dark / Light / System menu |
 | `ErrorView` | `components/ui/error-view.tsx` | Route error boundaries |
 | `PulseLoader` | `components/ui/pulse-loader.tsx` | Inline/sm/lg loading |
 | `Button` | `components/ui/button.tsx` | shadcn/base-ui when variant system helps |

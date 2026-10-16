@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { unsubscribeFromDigest } from '@/lib/actions'
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default async function UnsubscribePage({
           <Link href="/" className="hover:opacity-80 transition-opacity">
             <Logo size="sm" />
           </Link>
+          <ThemeSwitcher />
         </div>
 
         <div className="frame overflow-hidden">

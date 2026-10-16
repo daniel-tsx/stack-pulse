@@ -151,7 +151,7 @@ export function StackPulseHero() {
           className="relative"
         >
           {/* Editor window */}
-          <div className="frame shadow-[0_30px_60px_-30px_rgba(0,0,0,0.6)] relative overflow-hidden">
+          <div className="frame shadow-[var(--hero-shadow)] relative overflow-hidden">
             <div className="frame-titlebar">
               <span className="win-dots">
                 <span style={{ background: '#fb7185' }} />
@@ -212,7 +212,7 @@ export function StackPulseHero() {
             transition={{ duration: 0.6, delay: 0.9 }}
             className="absolute -bottom-6 -left-4 right-6 sm:left-auto sm:-right-6 sm:bottom-6 sm:max-w-[280px]"
           >
-            <div className="frame shadow-[0_30px_60px_-30px_rgba(0,0,0,0.7)]">
+            <div className="frame shadow-[var(--hero-shadow-strong)]">
               <div className="frame-titlebar">
                 <span className="text-lime">●</span>
                 <span className="text-dust">upgrade digest</span>

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft01Icon } from 'hugeicons-react'
 
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PulseLoader } from '@/components/ui/pulse-loader'
 
@@ -15,7 +16,7 @@ export default function StackPageLoading() {
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <Logo size="md" />
         </Link>
-        <nav className="flex items-center gap-4 font-mono text-[11px] text-fade">
+        <nav className="flex items-center gap-2 sm:gap-4 font-mono text-[11px] text-fade">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 hover:text-dust transition-colors"
@@ -26,6 +27,7 @@ export default function StackPageLoading() {
           <Link href="/sign-in" className="text-lime hover:underline">
             track stack
           </Link>
+          <ThemeSwitcher />
         </nav>
       </header>
 

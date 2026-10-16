@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PulseLoader } from '@/components/ui/pulse-loader'
 
@@ -18,7 +19,10 @@ export default function OnboardingLoading() {
             <span className="text-mute">/</span>
             <span className="text-lime">configure</span>
           </div>
-          <Skeleton className="h-5 w-40" />
+          <div className="flex items-center gap-3">
+            <ThemeSwitcher />
+            <Skeleton className="h-5 w-20 sm:w-40" />
+          </div>
         </div>
       </header>
 

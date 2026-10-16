@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { UserMenu } from '@/components/dashboard/user-menu'
 import { WebhookSettings } from '@/components/dashboard/webhook-settings'
 import { getAuth } from '@/lib/auth'
@@ -47,11 +48,12 @@ async function SettingsContent() {
             <span className="text-mute">/</span>
             <span className="text-lime">settings</span>
           </div>
-          <div className="flex items-center gap-3 font-mono text-[11px]">
+          <div className="flex items-center gap-2 sm:gap-3 font-mono text-[11px]">
+            <ThemeSwitcher />
             <Link href="/dashboard" className="text-dust hover:text-lime transition-colors">
               back to feed
             </Link>
-            <span className="text-mute">·</span>
+            <span className="hidden text-mute sm:inline">·</span>
             <UserMenu email={session.user.email} />
           </div>
         </div>

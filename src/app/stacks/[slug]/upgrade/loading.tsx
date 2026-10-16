@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft01Icon } from 'hugeicons-react'
 
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { PulseLoader } from '@/components/ui/pulse-loader'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -12,7 +13,7 @@ export default function UpgradePlannerLoading() {
         <Link href="/" className="transition-opacity hover:opacity-80">
           <Logo size="md" />
         </Link>
-        <nav className="flex items-center gap-4 font-mono text-[11px] text-fade">
+        <nav className="flex items-center gap-2 sm:gap-4 font-mono text-[11px] text-fade">
           <Link
             href="/stacks"
             className="inline-flex items-center gap-1.5 transition-colors hover:text-dust"
@@ -23,6 +24,7 @@ export default function UpgradePlannerLoading() {
           <Link href="/sign-in" className="text-lime hover:underline">
             track stack
           </Link>
+          <ThemeSwitcher />
         </nav>
       </header>
 

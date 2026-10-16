@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft01Icon } from 'hugeicons-react'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 export function LegalShell({
   title,
@@ -19,13 +20,16 @@ export function LegalShell({
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <Logo size="md" />
         </Link>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 font-mono text-[11px] text-fade hover:text-dust transition-colors"
-        >
-          <ArrowLeft01Icon className="w-3 h-3" />
-          cd ..
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeSwitcher />
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 font-mono text-[11px] text-fade hover:text-dust transition-colors"
+          >
+            <ArrowLeft01Icon className="w-3 h-3" />
+            cd ..
+          </Link>
+        </div>
       </header>
 
       <main className="relative z-10 mx-auto max-w-3xl px-6 py-16">

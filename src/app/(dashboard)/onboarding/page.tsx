@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { ArrowRight01Icon } from 'hugeicons-react'
 import { Suspense } from 'react'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { TechSelector } from '@/components/tech-selector'
 import { UserMenu } from '@/components/dashboard/user-menu'
 import OnboardingLoading from './loading'
@@ -50,7 +51,8 @@ async function OnboardingContent() {
             <span className="text-mute">/</span>
             <span className="text-lime">configure</span>
           </div>
-          <div className="flex items-center gap-3 font-mono text-[11px]">
+          <div className="flex items-center gap-2 sm:gap-3 font-mono text-[11px]">
+            <ThemeSwitcher />
             <Link
               href="/dashboard"
               className="inline-flex items-center gap-1.5 text-fade hover:text-dust transition-colors"
@@ -58,7 +60,7 @@ async function OnboardingContent() {
               skip
               <ArrowRight01Icon className="w-3 h-3" />
             </Link>
-            <span className="text-mute">·</span>
+            <span className="hidden text-mute sm:inline">·</span>
             <UserMenu email={session.user.email} />
           </div>
         </div>

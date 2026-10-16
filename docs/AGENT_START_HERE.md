@@ -84,6 +84,7 @@ Old Drizzle snapshots (`drizzle/meta/0000_snapshot.json`, `0001`) still mention 
 | Deploy & cron | `vercel.json`, README | [operations/deployment.md](./operations/deployment.md) | Vercel Cron auth via `CRON_SECRET` |
 | Local dev | `package.json` scripts | [operations/local-development.md](./operations/local-development.md) | Focused cron suite: `pnpm test:cron` |
 | Navigation + caching | `next.config.ts`, `src/app/**/loading.tsx`, cached data helpers | [operations/navigation-and-caching.md](./operations/navigation-and-caching.md) | Cache Components + Partial Prefetching |
+| Themes | `components/theme-provider.tsx`, `components/theme-switcher.tsx`, `app/globals.css` | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md#theme-behavior-and-compatible-components) | Dark default; localStorage preference; root `data-theme`; Tailwind inline aliases |
 | Digest | `src/lib/digest.ts`, `digestSubscribers` table, `subscribeToDigest` | [features/digest-signup.md](./features/digest-signup.md) | Capture + weekly Resend send + unsubscribe |
 | Design system + architecture | `globals.css`, `src/components/**` | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) | Tokens, layout, copy voice, badges |
 
@@ -122,6 +123,7 @@ pnpm typecheck        # TypeScript 7
 pnpm typecheck:ts6    # TypeScript 6, for comparing during the TS 7 migration
 pnpm lint
 pnpm test:cron        # Mocked cron/GitHub recovery tests
+pnpm test:theme       # Theme initialization + light-palette contrast
 pnpm build
 git diff --check
 ```

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { ArrowLeft01Icon } from 'hugeicons-react'
 import { authClient } from '@/lib/auth-client'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { PulseLoader } from '@/components/ui/pulse-loader'
 
 export default function SignInPage() {
@@ -31,13 +32,16 @@ export default function SignInPage() {
           <Link href="/" className="hover:opacity-80 transition-opacity">
             <Logo size="sm" animated />
           </Link>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 font-mono text-[11px] text-fade hover:text-dust transition-colors"
-          >
-            <ArrowLeft01Icon className="w-3 h-3" />
-            cd ..
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeSwitcher />
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 font-mono text-[11px] text-fade hover:text-dust transition-colors"
+            >
+              <ArrowLeft01Icon className="w-3 h-3" />
+              cd ..
+            </Link>
+          </div>
         </div>
 
         <div className="frame overflow-hidden">

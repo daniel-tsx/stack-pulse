@@ -45,8 +45,8 @@ export function WebhookSettings({ initial }: { initial: UserWebhook | null }) {
           <span style={{ background: '#fbbf24' }} />
           <span style={{ background: '#34d399' }} />
         </span>
-        <span className="text-dust">~/settings/notifications.conf</span>
-        <span className="ml-auto text-mute">{hasSaved ? 'active' : 'not configured'}</span>
+        <span className="min-w-0 truncate text-dust">~/settings/notifications.conf</span>
+        <span className="ml-auto shrink-0 text-mute">{hasSaved ? 'active' : 'not configured'}</span>
       </div>
 
       <div className="space-y-5 p-5 font-mono text-[12.5px]">

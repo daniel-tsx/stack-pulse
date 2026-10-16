@@ -17,6 +17,7 @@ import {
   Flag03Icon,
 } from 'hugeicons-react'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { DigestSignupForm } from '@/components/landing/digest-signup-form'
 import { StackPulseHero } from '@/components/stack-pulse-hero'
 import { getLandingStats } from '@/lib/landing-stats'
@@ -197,8 +198,10 @@ export default async function LandingPage() {
             className="inline-flex items-center gap-1.5 rounded-md border border-ruling bg-shade px-3 py-1.5 text-ink hover:border-edge hover:bg-lift transition-colors"
           >
             <span className="text-lime">$</span>
-            <span>continue with github</span>
+            <span className="hidden sm:inline">continue with github</span>
+            <span className="sm:hidden">sign in</span>
           </Link>
+          <ThemeSwitcher />
         </nav>
       </header>
 

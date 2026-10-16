@@ -4,6 +4,7 @@ import { ArrowRight01Icon, Link01Icon } from 'hugeicons-react'
 
 import { DigestSignupForm } from '@/components/landing/digest-signup-form'
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { getPublicStackIndex, type PublicStackIndexItem } from '@/lib/public-stacks'
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -64,13 +65,14 @@ export default async function StacksPage() {
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <Logo size="md" />
         </Link>
-        <nav className="flex items-center gap-4 font-mono text-[11px] text-fade">
+        <nav className="flex items-center gap-2 sm:gap-4 font-mono text-[11px] text-fade">
           <Link href="/" className="hover:text-dust transition-colors">
             home
           </Link>
           <Link href="/sign-in" className="text-lime hover:underline">
             track stack
           </Link>
+          <ThemeSwitcher />
         </nav>
       </header>
 

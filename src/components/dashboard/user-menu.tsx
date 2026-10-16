@@ -37,11 +37,12 @@ export function UserMenu({ email }: { email: string }) {
       <button
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-1.5 font-mono text-[11px] text-fade hover:text-ink transition-colors px-2 py-1 rounded-sm hover:bg-shade"
+        aria-label={`Account menu for ${email}`}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <UserCircleIcon className="w-3.5 h-3.5" />
-        <span className="truncate max-w-[180px]">{email}</span>
+        <span className="hidden truncate max-w-[180px] sm:inline">{email}</span>
         <span className="text-mute">{open ? '▴' : '▾'}</span>
       </button>
 

@@ -2,32 +2,9 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @theme {
-  --color-void: #08080a;
-  --color-shade: #0d0d10;
-  --color-lift: #131318;
-  --color-panel: #16161c;
-  --color-ink: #e8e8ec;
-  --color-dust: #9b9ba1;
-  --color-fade: #5a5a62;
-  --color-mute: #3a3a42;
-  --color-line: #1c1c22;
-  --color-ruling: #26262e;
-  --color-edge: #34343d;
-
-  /* Syntax-style semantic accents */
-  --color-lime: #a3e635;
-  --color-lime-dim: rgba(163, 230, 53, 0.12);
-  --color-cyan: #67e8f9;
-  --color-violet: #c084fc;
-  --color-magenta: #f472b6;
-  --color-amber: #fbbf24;
-  --color-emerald: #34d399;
-  --color-rose: #fb7185;
-
-  /* Legacy aliases (kept so untouched files don't break) */
-  --color-amber-dim: rgba(251, 191, 36, 0.12);
-
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-geist-mono);
@@ -130,6 +107,7 @@
 }
 
 :root {
+  color-scheme: dark;
   --void: #08080a;
   --shade: #0d0d10;
   --lift: #131318;
@@ -150,38 +128,74 @@
   --emerald: #34d399;
   --rose: #fb7185;
 
-  --background: #08080a;
-  --foreground: #e8e8ec;
-  --card: #0d0d10;
-  --card-foreground: #e8e8ec;
-  --popover: #131318;
-  --popover-foreground: #e8e8ec;
-  --primary: #a3e635;
-  --primary-foreground: #08080a;
-  --secondary: #131318;
-  --secondary-foreground: #e8e8ec;
-  --muted: #0d0d10;
-  --muted-foreground: #9b9ba1;
-  --accent: #131318;
-  --accent-foreground: #e8e8ec;
-  --destructive: #fb7185;
-  --border: #1c1c22;
-  --input: #1c1c22;
-  --ring: #26262e;
-  --chart-1: #a3e635;
-  --chart-2: #67e8f9;
-  --chart-3: #c084fc;
-  --chart-4: #fbbf24;
-  --chart-5: #fb7185;
+  --grid-dot: rgba(255, 255, 255, 0.025);
+  --noise-opacity: 1;
+  --noise-blend: overlay;
+  --hero-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6);
+  --hero-shadow-strong: 0 30px 60px -30px rgba(0, 0, 0, 0.7);
+
+  /* shadcn shares the product palette; theme values live only above/below. */
+  --background: var(--void);
+  --foreground: var(--ink);
+  --card: var(--shade);
+  --card-foreground: var(--ink);
+  --popover: var(--lift);
+  --popover-foreground: var(--ink);
+  --primary: var(--lime);
+  --primary-foreground: var(--void);
+  --secondary: var(--lift);
+  --secondary-foreground: var(--ink);
+  --muted: var(--shade);
+  --muted-foreground: var(--dust);
+  --accent: var(--lift);
+  --accent-foreground: var(--ink);
+  --destructive: var(--rose);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--lime);
+  --chart-1: var(--lime);
+  --chart-2: var(--cyan);
+  --chart-3: var(--violet);
+  --chart-4: var(--amber);
+  --chart-5: var(--rose);
   --radius: 0.375rem;
-  --sidebar: #08080a;
-  --sidebar-foreground: #e8e8ec;
-  --sidebar-primary: #a3e635;
-  --sidebar-primary-foreground: #08080a;
-  --sidebar-accent: #0d0d10;
-  --sidebar-accent-foreground: #e8e8ec;
-  --sidebar-border: #1c1c22;
-  --sidebar-ring: #26262e;
+  --sidebar: var(--void);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--lime);
+  --sidebar-primary-foreground: var(--void);
+  --sidebar-accent: var(--shade);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--ring);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --void: #f7f8f4;
+  --shade: #ffffff;
+  --lift: #f0f2ec;
+  --panel: #e9ede3;
+  --ink: #20251c;
+  --dust: #4f5849;
+  --fade: #626b5c;
+  --mute: #646c5b;
+  --line: #dce1d4;
+  --ruling: #c9d1bf;
+  --edge: #9da98f;
+
+  --lime: #3f6212;
+  --cyan: #0e6275;
+  --violet: #7140a5;
+  --magenta: #a42a70;
+  --amber: #854d0e;
+  --emerald: #166348;
+  --rose: #be123c;
+
+  --grid-dot: rgba(32, 37, 28, 0.07);
+  --noise-opacity: 0.5;
+  --noise-blend: multiply;
+  --hero-shadow: 0 30px 60px -30px rgba(32, 37, 28, 0.14);
+  --hero-shadow-strong: 0 30px 60px -30px rgba(32, 37, 28, 0.18);
 }
 
 html {
@@ -205,7 +219,7 @@ body::before {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
   background-size: 22px 22px;
   background-position: 0 0;
   mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
@@ -221,7 +235,8 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
-  mix-blend-mode: overlay;
+  mix-blend-mode: var(--noise-blend);
+  opacity: var(--noise-opacity);
 }
 
 .animate-fade-up {
@@ -316,6 +331,8 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in,
   .pulse-bar,
   .skeleton,
   .caret::after,
@@ -419,8 +436,28 @@ a:not([class]):hover {
 }
 
 @theme inline {
+  /* Inline aliases make utilities resolve the active root palette. */
+  --color-void: var(--void);
+  --color-shade: var(--shade);
+  --color-lift: var(--lift);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-dust: var(--dust);
+  --color-fade: var(--fade);
+  --color-mute: var(--mute);
+  --color-line: var(--line);
+  --color-ruling: var(--ruling);
+  --color-edge: var(--edge);
+  --color-lime: var(--lime);
+  --color-lime-dim: color-mix(in srgb, var(--lime) 12%, transparent);
+  --color-cyan: var(--cyan);
+  --color-violet: var(--violet);
+  --color-magenta: var(--magenta);
+  --color-amber: var(--amber);
+  --color-amber-dim: color-mix(in srgb, var(--amber) 12%, transparent);
+  --color-emerald: var(--emerald);
+  --color-rose: var(--rose);
   --font-heading: var(--font-mono);
-  --font-sans: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -465,6 +502,11 @@ a:not([class]):hover {
   * {
     @apply border-border outline-ring/50;
   }
+
+  :focus-visible {
+    outline: 2px solid var(--lime);
+    outline-offset: 3px;
+  }
 }
 
 .legal-prose h2 {
@@ -503,7 +545,7 @@ a:not([class]):hover {
 .legal-prose a {
   color: var(--lime);
   text-decoration: underline;
-  text-decoration-color: rgba(163, 230, 53, 0.3);
+  text-decoration-color: color-mix(in srgb, var(--lime) 30%, transparent);
   text-underline-offset: 3px;
 }
 .legal-prose a:hover {

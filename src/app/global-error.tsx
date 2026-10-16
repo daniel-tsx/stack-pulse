@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
+import { ThemeProvider } from '@/components/theme-provider'
+import { ThemeSwitcher } from '@/components/theme-switcher'
+import './globals.css'
 
 // global-error replaces the root layout, so next/font CSS vars are unavailable —
-// styles are inlined and self-contained on purpose.
+// keep the font fallback inline, but share theme tokens and preference handling.
 export default function GlobalError({
   error,
   unstable_retry,
@@ -18,7 +21,7 @@ export default function GlobalError({
   const mono = "'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
 
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <body
         style={{
           margin: 0,
@@ -26,71 +29,76 @@ export default function GlobalError({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#08080a',
-          color: '#e8e8ec',
+          background: 'var(--void)',
+          color: 'var(--ink)',
           fontFamily: mono,
           padding: '24px',
         }}
       >
         <title>Something went wrong · StackPulse</title>
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '460px',
-            background: '#0d0d10',
-            border: '1px solid #1c1c22',
-            borderRadius: '6px',
-            overflow: 'hidden',
-          }}
-        >
+        <ThemeProvider>
           <div
             style={{
-              borderBottom: '1px solid #1c1c22',
-              padding: '10px 14px',
-              fontSize: '11px',
-              color: '#5a5a62',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
+              position: 'relative',
+              zIndex: 1,
+              width: '100%',
+              maxWidth: '460px',
+              background: 'var(--shade)',
+              border: '1px solid var(--line)',
+              borderRadius: '6px',
+              overflow: 'hidden',
             }}
           >
-            <span style={{ width: 9, height: 9, borderRadius: 9, background: '#fb7185' }} />
-            <span style={{ width: 9, height: 9, borderRadius: 9, background: '#fbbf24' }} />
-            <span style={{ width: 9, height: 9, borderRadius: 9, background: '#34d399' }} />
-            <span style={{ marginLeft: 6, color: '#9b9ba1' }}>~/fatal</span>
-          </div>
-
-          <div style={{ padding: '22px', fontSize: '13px', lineHeight: 1.6 }}>
-            <div style={{ color: '#5a5a62' }}>{'// the app crashed at the root'}</div>
-            <div style={{ marginTop: 10 }}>
-              <span style={{ color: '#5a5a62' }}>$ </span>
-              <span style={{ color: '#fb7185' }}>fatal</span>
-              <span style={{ color: '#9b9ba1' }}>: {error.message || 'unknown error'}</span>
-            </div>
-            {error.digest && (
-              <div style={{ marginTop: 6, color: '#5a5a62', fontSize: 11 }}>
-                digest: {error.digest}
-              </div>
-            )}
-            <button
-              onClick={() => unstable_retry()}
+            <div
               style={{
-                marginTop: 18,
-                background: '#a3e635',
-                color: '#08080a',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '9px 16px',
-                fontFamily: mono,
-                fontSize: '12.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
+                borderBottom: '1px solid var(--line)',
+                padding: '10px 14px',
+                fontSize: '11px',
+                color: 'var(--fade)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
               }}
             >
-              retry
-            </button>
+              <span style={{ width: 9, height: 9, borderRadius: 9, background: '#fb7185' }} />
+              <span style={{ width: 9, height: 9, borderRadius: 9, background: '#fbbf24' }} />
+              <span style={{ width: 9, height: 9, borderRadius: 9, background: '#34d399' }} />
+              <span style={{ marginLeft: 6, marginRight: 'auto', color: 'var(--dust)' }}>~/fatal</span>
+              <ThemeSwitcher />
+            </div>
+
+            <div style={{ padding: '22px', fontSize: '13px', lineHeight: 1.6 }}>
+              <div style={{ color: 'var(--fade)' }}>{'// the app crashed at the root'}</div>
+              <div style={{ marginTop: 10 }}>
+                <span style={{ color: 'var(--fade)' }}>$ </span>
+                <span style={{ color: 'var(--rose)' }}>fatal</span>
+                <span style={{ color: 'var(--dust)' }}>: {error.message || 'unknown error'}</span>
+              </div>
+              {error.digest && (
+                <div style={{ marginTop: 6, color: 'var(--fade)', fontSize: 11 }}>
+                  digest: {error.digest}
+                </div>
+              )}
+              <button
+                onClick={() => unstable_retry()}
+                style={{
+                  marginTop: 18,
+                  background: 'var(--lime)',
+                  color: 'var(--void)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '9px 16px',
+                  fontFamily: mono,
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                retry
+              </button>
+            </div>
           </div>
-        </div>
+        </ThemeProvider>
       </body>
     </html>
   )

@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import { ZapIcon } from 'hugeicons-react'
 
 import { Logo } from '@/components/logo'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { ReleaseFeed } from '@/components/dashboard/release-feed'
 import { UserMenu } from '@/components/dashboard/user-menu'
 import { getAuth } from '@/lib/auth'
@@ -158,22 +159,23 @@ function DashHeader({ email }: { email: string | null }) {
           <span className="text-mute">/</span>
           <span className="text-lime">feed</span>
         </div>
-        <div className="flex items-center gap-3 font-mono text-[11px]">
+        <div className="flex items-center gap-2 sm:gap-3 font-mono text-[11px]">
+          <ThemeSwitcher />
           {email ? (
             <>
               <Link href="/onboarding" className="text-dust hover:text-lime transition-colors">
-                edit stack
+                <span className="hidden sm:inline">edit </span>stack
               </Link>
-              <span className="text-mute">·</span>
+              <span className="hidden text-mute sm:inline">·</span>
               <Link href="/settings" className="text-dust hover:text-lime transition-colors">
                 settings
               </Link>
-              <span className="text-mute">·</span>
+              <span className="hidden text-mute sm:inline">·</span>
               <UserMenu email={email} />
             </>
           ) : (
             <Link href="/sign-in" className="text-dust hover:text-lime transition-colors">
-              sign in to track your stack
+              sign in<span className="hidden sm:inline"> to track your stack</span>
             </Link>
           )}
         </div>

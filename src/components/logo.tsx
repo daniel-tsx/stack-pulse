@@ -42,14 +42,14 @@ export function Logo({
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
-        <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="#0d0d10" stroke="#26262e" />
+        <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="var(--shade)" stroke="var(--ruling)" />
         {/* feed line — the timeline every release lands on */}
         <line
           x1="6"
           y1={BASE_Y}
           x2="26"
           y2={BASE_Y}
-          stroke="#a3e635"
+          stroke="var(--lime)"
           strokeWidth="1"
           strokeOpacity="0.34"
           strokeLinecap="round"
@@ -63,16 +63,16 @@ export function Logo({
             y1={BASE_Y}
             x2={bar.x}
             y2={bar.top}
-            stroke="#a3e635"
+            stroke="var(--lime)"
             strokeWidth="2.7"
             strokeLinecap="round"
             style={{ animationDelay: `${i * 0.08}s` }}
           />
         ))}
         {/* one-shot ping on the flagged beat (animated surfaces only) */}
-        {animated && <circle className="logo-ping" cx="16" cy="5.35" r="2.3" fill="#a3e635" />}
+        {animated && <circle className="logo-ping" cx="16" cy="5.35" r="2.3" fill="var(--lime)" />}
         {/* the flagged / breaking release, floating clear of the tallest beat */}
-        <circle cx="16" cy="5.35" r="2.3" fill="#a3e635" />
+        <circle cx="16" cy="5.35" r="2.3" fill="var(--lime)" />
       </svg>
       {showWordmark && (
         <span
