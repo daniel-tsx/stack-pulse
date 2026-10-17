@@ -64,6 +64,13 @@
       "when": 1781136498562,
       "tag": "0008_wonderful_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792159752999,
+      "tag": "0009_release_votes",
+      "breakpoints": true
     }
   ]
 }

@@ -104,6 +104,8 @@ src/lib/
     <h2 id="public">7. Public stacks pages</h2>
     <p>Fully server-rendered — no TanStack Query. Data from <code>public-stacks.ts</code>. JSON-LD in page for SEO. Signal badges derived server-side to match feed semantics.</p>
 
+    <p><strong>Release detail extension (2026-10-16):</strong> <code>/stacks/[slug]/releases/[releaseId]</code> resolves one public release with <code>public-releases.ts</code> and shares <code>ReleaseNotes</code> with stack cards. A separate <code>ReleaseVote</code> client island uses uncached GET/PUT; cached content/metadata contain no session or vote data. The virtual feed only adds detail links. See <a href="../features/public-stacks.md">public stacks</a> for the API, concurrency, cache and migration contract.</p>
+
     <h2 id="auth-ui">8. Auth UI flow</h2>
     <p>Sign-in page triggers Better Auth client redirect. Post-auth: middleware-less flow — pages check session and redirect empty stacks to <code>/onboarding</code>.</p>
 

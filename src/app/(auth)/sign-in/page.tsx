@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { ArrowLeft01Icon } from 'hugeicons-react'
 import { authClient } from '@/lib/auth-client'
+import { safeReturnPath } from '@/lib/auth-return-path'
 import { Logo } from '@/components/logo'
 import { ThemeSwitcher } from '@/components/theme-switcher'
 import { PulseLoader } from '@/components/ui/pulse-loader'
@@ -17,7 +18,7 @@ export default function SignInPage() {
     setError(null)
     const { error } = await authClient.signIn.social({
       provider: 'github',
-      callbackURL: '/dashboard',
+      callbackURL: safeReturnPath(new URLSearchParams(window.location.search).get('returnTo')),
     })
     if (error) {
       setError('could not sign in with github')

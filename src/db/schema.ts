@@ -10,6 +10,8 @@ import {
   primaryKey,
   unique,
   index,
+  smallint,
+  check,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -120,6 +122,26 @@ export const userReadReleases = pgTable(
     readAt: timestamp('read_at').notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.releaseId] })],
+)
+
+export const releaseVotes = pgTable(
+  'release_votes',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    releaseId: uuid('release_id')
+      .notNull()
+      .references(() => releaseUpdates.id, { onDelete: 'cascade' }),
+    value: smallint('value').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.releaseId] }),
+    check('release_votes_value_check', sql`${t.value} in (-1, 1)`),
+    index('release_votes_release_idx').on(t.releaseId),
+  ],
 )
 
 export const digestSubscribers = pgTable(

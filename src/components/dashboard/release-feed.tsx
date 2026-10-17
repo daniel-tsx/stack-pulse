@@ -3,6 +3,7 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { AiChat02Icon, Link01Icon, SentIcon } from 'hugeicons-react'
+import Link from 'next/link'
 import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { useEffect, useMemo, useState, useTransition, type FormEvent, type ReactNode } from 'react'
 
@@ -649,49 +650,53 @@ function ReleaseCard({
             </div>
           )}
 
-          {(release.rawReleaseUrl || canManageReadState) && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                {release.rawReleaseUrl && (
-                  <a
-                    href={release.rawReleaseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 font-mono text-[11px] text-fade hover:text-lime transition-colors"
-                  >
-                    <Link01Icon className="w-3 h-3" />
-                    view source on github
-                    <span className="text-mute">↗</span>
-                  </a>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {canManageReadState ? (
-                  <AskReleaseAdvice
-                    isOpen={isAdviceOpen}
-                    onToggle={() => setIsAdviceOpen((value) => !value)}
-                  />
-                ) : (
-                  <SignInAdviceHint />
-                )}
-                {canManageReadState && (
-                  <button
-                    type="button"
-                    onClick={() => onToggleRead(release)}
-                    disabled={isMarking}
-                    className={cn(
-                      'rounded-md border px-2.5 py-1.5 font-mono text-[11px] transition-colors disabled:opacity-50',
-                      release.isRead
-                        ? 'border-ruling text-fade hover:border-cyan hover:text-cyan'
-                        : 'border-lime/30 bg-lime-dim text-lime hover:bg-lime/15',
-                    )}
-                  >
-                    {release.isRead ? 'mark unread' : 'mark read'}
-                  </button>
-                )}
-              </div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href={`/stacks/${release.techSlug}/releases/${release.id}`}
+                className="inline-flex items-center gap-1.5 font-mono text-[11px] text-lime hover:underline"
+              >
+                view details <span aria-hidden="true">→</span>
+              </Link>
+              {release.rawReleaseUrl && (
+                <a
+                  href={release.rawReleaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 font-mono text-[11px] text-fade hover:text-lime transition-colors"
+                >
+                  <Link01Icon className="w-3 h-3" />
+                  view source on github
+                  <span className="text-mute">↗</span>
+                </a>
+              )}
             </div>
-          )}
+            <div className="flex flex-wrap items-center gap-2">
+              {canManageReadState ? (
+                <AskReleaseAdvice
+                  isOpen={isAdviceOpen}
+                  onToggle={() => setIsAdviceOpen((value) => !value)}
+                />
+              ) : (
+                <SignInAdviceHint />
+              )}
+              {canManageReadState && (
+                <button
+                  type="button"
+                  onClick={() => onToggleRead(release)}
+                  disabled={isMarking}
+                  className={cn(
+                    'rounded-md border px-2.5 py-1.5 font-mono text-[11px] transition-colors disabled:opacity-50',
+                    release.isRead
+                      ? 'border-ruling text-fade hover:border-cyan hover:text-cyan'
+                      : 'border-lime/30 bg-lime-dim text-lime hover:bg-lime/15',
+                  )}
+                >
+                  {release.isRead ? 'mark unread' : 'mark read'}
+                </button>
+              )}
+            </div>
+          </div>
 
           {canManageReadState && <ReleaseAdvicePanel release={release} isOpen={isAdviceOpen} />}
         </div>

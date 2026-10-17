@@ -101,6 +101,9 @@
     <h3>1.4 <code>/api/auth/[...all]</code></h3>
     <p>Better Auth catch-all: sign-in, sign-out, callback, session. See <a href="integrations.html#better-auth">integrations</a> and <code>docs/features/auth.md</code>.</p>
 
+    <h3>1.5 <code>GET / PUT /api/releases/[releaseId]/vote</code></h3>
+    <p><strong>Added 2026-10-16:</strong> public totals and session-scoped desired-state votes; private no-store responses. Requires additive migration <code>0009</code> before deploying. The current <a href="../features/public-stacks.md#api-contract">API contract, concurrency guarantees and deployment sequence</a> live with the public release feature.</p>
+
     <h2 id="actions">2. Server actions (<code>src/lib/actions.ts</code>)</h2>
     <p>All return <code>{ ok: true }</code>, <code>{ ok: true, data: T }</code>, or <code>{ ok: false, error: string }</code>.</p>
     <table>

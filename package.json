@@ -20,7 +20,8 @@
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
     "db:studio": "drizzle-kit studio",
     "releases:backfill": "tsx --env-file=.env scripts/backfill-release-intelligence.ts",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "test:votes": "node --test tests/release-votes.test.mjs tests/release-vote-ui.test.mjs tests/release-votes-db.test.mjs tests/release-pages-http.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -63,6 +64,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.0",
+    "pg": "^8.23.1",
     "png-to-ico": "^3.0.1",
     "prettier": "^3.9.6",
     "shadcn": "^4.17.0",

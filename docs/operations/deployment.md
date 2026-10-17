@@ -28,6 +28,10 @@ after an approved deployment; wait for scheduled ingestion instead of triggering
 
 ## Deploy checklist
 
+For updates to an existing production installation, apply reviewed pending migrations **before pushing/merging the application change to `main`**, which triggers the GitHub-linked Vercel deployment. Release voting specifically requires `0009_release_votes.sql` first; follow the [migration and deployment order](../features/public-stacks.md#migration-and-deployment-order). Do not seed, change production credentials, or trigger live cron for this update. Retain the additive vote table if rolling back the app.
+
+Initial installation checklist:
+
 1. Push to GitHub
 2. Import repo in Vercel
 3. Set all production env vars

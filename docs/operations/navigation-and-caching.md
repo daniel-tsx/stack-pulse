@@ -11,6 +11,7 @@ prefetching each URL would multiply server work without improving the shared she
 ## Cache policy
 
 - Public stack index/detail data and version-keyed upgrade plans are cached for one hour.
+- UUID release details use the same one-hour public cache, independently of the uncached vote API. `myVote` is never part of the shared content/metadata cache. The detail's client voting panel refetches state on mount/focus and after ambiguous failures; cards only link to it.
 - Landing metrics are cached for 10 minutes in `src/lib/landing-stats.ts`.
 - The public status page is cached for five minutes.
 - The sitemap is cached for one hour.
@@ -26,6 +27,7 @@ stale value can remain available while the cache refreshes.
   shells while authenticated or user-specific data streams.
 - `/stacks/[slug]` has one shared release-page shell for every slug.
 - `/stacks/[slug]/upgrade` overrides the parent loader with an upgrade-planner shell.
+- `/stacks/[slug]/releases/[releaseId]` has a release-note shell. A scoped proxy performs a small uncached identity check before non-prefetch requests stream, ensuring real HTTP 404 responses for missing/mismatched releases. Content stays cached and voting loads independently; no release routes are enumerated at build time.
 - `/` sets `instant = false` because the session decides whether the route renders or redirects;
   streaming the public landing page first would flash the wrong UI to signed-in users.
 - `/digest/unsubscribe` sets `instant = false` because it is entered from email and its private

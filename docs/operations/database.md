@@ -17,6 +17,7 @@
 | `user_tech_preferences` | User ↔ stack follows |
 | `release_updates` | Ingested + AI-summarised releases |
 | `user_read_releases` | Read/unread per user |
+| `release_votes` | One ±1 vote per user/release; cascading FKs, value check, release aggregation index, creation/update timestamps |
 | `release_fetch_runs` | Ingestion run audit log |
 | `digest_subscribers` | Email signups (no sender) |
 
@@ -29,9 +30,15 @@ pnpm db:migrate    # apply
 
 Initial/dev shortcut:
 
+Never use this shortcut against production; review and apply versioned migrations there.
+
 ```bash
 pnpm db:push
 ```
+
+### Release voting (`0009`)
+
+`0009_release_votes.sql` is additive: table + composite primary key + CHECK + cascading foreign keys + `release_id` index. Apply it **before** deploying code that reads/writes votes. It does not change release IDs or ingestion records. The exact operator migration/deployment and rollback sequence is maintained in [public stacks](../features/public-stacks.md#migration-and-deployment-order). Do not apply production migrations automatically during implementation.
 
 ## Seed
 

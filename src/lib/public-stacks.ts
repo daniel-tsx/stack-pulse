@@ -164,7 +164,7 @@ export async function getPublicStackPage(slug: string): Promise<PublicStackPageD
   }
 }
 
-function deriveReleaseSignals(row: {
+export function deriveReleaseSignals(row: {
   releaseSignals: string[] | null
   breakingChanges: string[] | null
   securityNotes: string[] | null
