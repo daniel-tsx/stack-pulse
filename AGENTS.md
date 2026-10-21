@@ -1,140 +1,79 @@
-# AGENTS.md
+# Agent guide — StackPulse
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+**Status:** current
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+## Start here and source of truth
 
-## 1. Think Before Coding
+1. Confirm the repository/working directory and inspect `git status`. Preserve unrelated work.
+2. Read [README.md](README.md), [docs/AGENT_START_HERE.md](docs/AGENT_START_HERE.md), applicable nested `AGENTS.md`/`CLAUDE.md`, and the task's owning documents before non-trivial work.
+3. Inspect existing implementations, callers, package scripts and configuration. Code/configuration establish current behavior; docs provide intent. Surface disagreements rather than silently trusting stale prose.
+4. State assumptions and a short plan with verifiable outcomes for multi-step work. Discover facts independently; ask only about consequential unresolved decisions. Skip heavy planning for trivial, sufficiently specified tasks.
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+This file owns shared repository rules and skill routing. [AI workflow](docs/operations/ai-workflow.md) owns skill maintenance and compatibility checks; [verification](docs/operations/verification.md) owns commands and service isolation. `CLAUDE.md` imports this guide with `@AGENTS.md`. Cursor uses this guide and the existing `.cursor/rules/`; do not duplicate the whole workflow there.
 
-Before implementing:
+## Project boundaries
 
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+- Next.js 16 App Router / React 19; pnpm is pinned in `package.json`. Use existing tooling and conventions.
+- PostgreSQL on Neon through Drizzle's **neon-http** adapter. A local PostgreSQL URL does not make the production HTTP driver work over TCP. Local SQL tests use an explicit test transport; hosted Neon behavior is a separate boundary.
+- GitHub-only Better Auth; preserve server-side sessions, ownership checks, origin validation and safe return paths. No billing: do not reintroduce removed Lemon Squeezy behavior without an explicit task.
+- Release ingestion scans registry stacks plus followed custom repositories. Preserve deduplication, bounded retries, run finalization and recovery from unknown writes.
+- OpenRouter inference can spend money; Resend and Slack/Discord can send real notifications. Do not start cron, seed/backfill, workers or live provider calls as a verification shortcut.
+- Agent Skill Updates has separate ingestion/model settings and approval-gated hosted verification. Preserve lease fencing, durable checkpoints, [its staging gates](docs/operations/skill-staging-verification.md), disabled cron registration, budget limits and rollout sequence.
+- Preserve the architecture, domain contracts and additive migration history. Do not replace reviewed migrations with schema push or regenerate old snapshots to fix a task.
 
-## 2. Simplicity First
+## Engineering and autonomous execution
 
-**Minimum code that solves the problem. Nothing speculative.**
+- Make the smallest complete, correct change. Every changed line should serve the request. No speculative features, abstractions, unrelated refactors, formatting or cleanup of pre-existing dead code.
+- Reuse existing utilities, dependencies and platform capabilities. Match neighboring patterns. Remove imports/functions made unused by your own change; preserve validation, error handling, security, accessibility and meaningful edge cases.
+- Check affected callers, integrations, fixtures and tests before editing shared behavior. For a bug, verify the cause and reproduce it where practical; use a focused regression for meaningful behavior.
+- Inspect current official documentation when implementing new or unfamiliar APIs. Review relevant package upgrades when needed; do not upgrade unrelated dependencies as incidental cleanup. Prefer pnpm for new projects.
+- Resolve routine reversible choices independently. Ask before implementing unresolved high-risk decisions; already-approved decisions do not need another interview.
+- Never expose or commit secrets. No production data changes/migrations, cloud-connected tests, paid inference, real notifications, deployment, commit or push without explicit session authorization. Never use an unverified `.env` database as a test fallback.
+- Use disposable, test-owned resources for destructive tests. Clean up only this run's resources. Do not change global/user agent settings, install lifecycle hooks/plugins, or create skill symlinks/junctions.
+- Do not fabricate product claims, metrics, users or verification results. Distinguish implemented, inspected, tested and externally verified evidence.
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+## Conditional skill routing
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+Load the repository-local `.agents/skills/<name>/SKILL.md` in Codex or `.claude/skills/<name>/SKILL.md` in Claude Code. When same-name personal/plugin skills exist, explicitly read the local file; do not combine competing versions. Select skills by task relevance and explicit user requests. Upstream "always" or session-wide wording must not activate unrelated skills. Once selected, follow the relevant procedure and confirmation gates. Prefer one primary skill per activity and load supporting references only as needed.
 
-## 3. Surgical Changes
+| Activity | Routing |
+| --- | --- |
+| Planning | Use `grilling` for consequential unresolved requirements, architecture trade-offs or high-risk design choices. Inspect first, discover facts independently, separate approved choices from open ones, ask focused questions with recommendations, and respect its confirmation gate before implementation. Skip it for trivial or well-specified work. `grill-me` is explicit-only and delegates to `grilling`. |
+| Implementation | Apply `ponytail` to meaningful code changes: reuse existing patterns and deliver the smallest complete solution, preserving project/domain safety and affected integrations. |
+| Debugging | Use `systematic-debugging` for non-trivial bugs, recurring/intermittent failures and unexplained tests: evidence, hypotheses, root cause and regression verification. Skip the full process for isolated fixes with an established cause. |
+| PostgreSQL | Use `supabase-postgres-best-practices` for schema/migrations, queries/indexes, transactions/locks/concurrency, connections, performance or database security. Read relevant references only. Do not assume Supabase infrastructure; Neon architecture and project safety take precedence. |
+| Review | For non-trivial changes, apply `ponytail-review` with the existing `eastbase-review-pr` overlay. Trace affected callers/integrations, correctness, regressions, concurrency, security, tests, performance and unnecessary complexity. Prefer an independent or isolated context when available. Report findings before applying fixes; a review itself changes no code. Avoid redundant passes. |
+| Audit | Use `ponytail-audit` for explicit whole-codebase or major subsystem audits, never automatically for each feature. |
 
-**Touch only what you must. Clean up only your own mess.**
+Retain specialized environment-provided skills when available: `eastbase-premium-ui` before user-facing UI work, `eastbase-review-pr` for product/auth/AI-cost/data/UX risk, and `eastbase-launch-check` only when a launch/go-live check is wanted. Launch checks return a verdict with blockers and follow-ups; ordinary implementation does not trigger them. These overlays complement general engineering skills. If a required specialized skill is unavailable, report the gap and inspect relevant owning docs; do not claim the gate passed.
 
-When editing existing code:
-
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
----
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
-
-## Additional Rules
-
-- Always check the latest documentation when implementing new features and upgrade packages when newer versions are available.
-- Prefer pnpm as the package manager for new projects.
-- Always review existing implementations in the project to ensure consistent patterns across the app.
-- Write clean code following best practices and optimize for performance.
-- Don't use linear gradient background unless I tell you or it's a really necessary case
-- Prefer to use color on project's design system over custom color
+For React/Next.js behavior, data fetching, rendering, refactoring and performance work, conditionally use available `vercel-react-best-practices`. Use available `agent-browser` when actual browser interaction provides meaningful UI evidence, with isolated data. Do not automatically install/vendor either optional capability. Skip browser work for irrelevant backend/documentation tasks and report material verification gaps.
 
 ## Windows shell (Command Prompt)
 
-**Prefer `cmd.exe` for all terminal commands on Windows** — not PowerShell.
+Use `cmd.exe` for terminal commands on Windows. Chain necessary commands with `&&`; use `set VAR=value` for environment variables. Only use PowerShell when explicitly requested. Preserve `.cursor/rules/windows-cmd-shell.mdc` and `.vscode/settings.json`, including the `cmd.exe` automation profile. Editor shell setup and known Cursor limitations are documented in [local development](docs/operations/local-development.md#windows-editor-shell).
 
-| Do (cmd) | Don't (PowerShell) |
-| --- | --- |
-| `cmd /c "cd /d path && pnpm test"` | `cd path; pnpm test` |
-| `set FOO=bar && command` | `$env:FOO = "bar"; command` |
-| Chain with `&&` | Chain with `;` or pipelines when unnecessary |
+## UI and documentation
 
-Only use PowerShell when the user explicitly requests it.
+- For UI/pages/styling, read [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md), follow project tokens/layout patterns, and prefer design-system colors. No linear-gradient background unless requested or necessary.
+- Treat documentation as working memory, verified against implementation. Update owning docs for durable changes to architecture, routes/APIs, env vars, schema/migrations, auth/security, operations/testing/deployment or user-visible behavior.
+- Avoid documentation churn for tiny refactors, incidental implementation details or temporary debugging. Prefer one current source of truth per topic and preserve architecture records/navigation indexes.
+- Every new/edited doc needs a status: `current`, `planned`, `shipped`, `historical` or `superseded`. Move completed plans/stale reviews to `docs/archive/`. Record valuable lessons in existing owning docs; do not create a parallel casebook by default.
 
-**Important:** This file guides command *syntax*. Cursor may still spawn PowerShell for the agent shell on Windows. To change that, see **Cursor shell setup** below and `.vscode/settings.json` in this repo.
+## Risk-based verification and Definition of Done
 
-### Cursor shell setup (Windows)
+Select checks by affected risk using [verification](docs/operations/verification.md#risk-based-verification). Documentation, styling and pure logic need proportionate static/unit/browser checks, not containers. Migrations, PostgreSQL constraints/locking/persistence/concurrency and infrastructure boundaries need application-level tests against real isolated services; use Docker where suitable or the existing verified native cluster. Mocks and a healthy container do not prove integration.
 
-1. **Workspace** — this repo includes `.vscode/settings.json` with `terminal.integrated.automationProfile.windows` → `cmd.exe`.
-2. **User settings** — in `%APPDATA%\Cursor\User\settings.json`, add the same `automationProfile` (your `defaultProfile` alone does not control the agent):
-   ```json
-   "terminal.integrated.automationProfile.windows": {
-     "path": "C:\\Windows\\System32\\cmd.exe"
-   }
-   ```
-3. **Cursor Settings** — enable **Legacy Terminal Tool** (`Ctrl+Shift+J` → Agents; exact menu label varies by version), then restart Cursor and run **Terminal: Kill All Terminals**.
-4. **Optional user setting** (forum-reported, not official docs): `"cursor.useLegacyTerminalTool": true`
-5. **Project rule** — `.cursor/rules/windows-cmd-shell.mdc` reinforces cmd syntax every session.
+If Docker or another required isolated environment is unavailable, mark affected checks **NOT RUN**, explain the missing evidence, and continue safe unrelated work. Do not bypass restrictions or declare unverified integration production-ready. No global Docker prune, unknown/shared volumes, production secrets, developer-project teardown or live provider consumers. Follow the detailed [Docker safety policy](docs/operations/verification.md#safe-docker-execution).
 
-If commands still run in PowerShell, that is a known Cursor Windows limitation; keep using cmd-compatible syntax anyway.
+Before declaring meaningful work done:
 
-## Documentation as Working Memory
-
-Use docs as durable project memory, but verify against code before acting.
-
-- Before starting non-trivial work, read `README.md`, `docs/AGENT_START_HERE.md` if present, and any feature doc directly related to the task.
-- For UI, pages, or styling changes, also read `docs/DESIGN_SYSTEM.md` for layout patterns and tokens.
-- Treat docs as guidance, not absolute truth. If docs and code disagree, trust the code, surface the mismatch, and update the doc only if the task changes durable behavior.
-- Update docs when changing architecture, routes/APIs, environment variables, database schema, billing/auth/security behavior, testing commands, or user-visible feature behavior.
-- Do not update docs for incidental implementation details, temporary debugging, tiny refactors, or changes that are already obvious from code/tests.
-- Every new or edited doc should make its status clear: `current`, `planned`, `shipped`, `historical`, or `superseded`.
-- Prefer one current source-of-truth doc per feature. Move completed plans and stale reviews to `docs/archive/` instead of leaving them beside current operational docs.
-
-## Reviewing changes
-
-When reviewing a PR, diff, branch, or an agent's changes in this repo — and before
-declaring any non-trivial change done — apply the `eastbase-review-pr` skill as an overlay
-on your normal review: check Eastbase product, auth, billing, AI-cost, data-safety, and UX
-risk, not just code cleanliness. Read it via the Skill tool. It is a review overlay only —
-it does not change how you implement.
-
-## Launch readiness
-
-When preparing to launch, publish, announce, sell, or meaningfully update this product —
-and before you call it ready to ship — apply the `eastbase-launch-check` skill as a pre-launch
-readiness gate: check the core flow, auth, billing/entitlement, env/deploy, public claims,
-and AI cost, and return a launch verdict with blockers vs follow-ups, not just a thumbs-up.
-Read it via the Skill tool. It is a readiness gate, not a security or legal audit — run it
-only when a launch / go-live check is wanted, not for ordinary implementation.
+- Requirements and domain/safety invariants hold; affected callers/integrations were reviewed.
+- Relevant checks ran with fresh evidence; real-service gaps and skipped/zero tests are explicit. For meaningful changes, run relevant tests plus `pnpm typecheck` and `pnpm lint`, or explain omissions.
+- Blocking review findings are resolved; `eastbase-review-pr` complements `ponytail-review` before completion.
+- Documentation impact was assessed, owning docs/indexes updated when needed, and edited links/statuses checked.
+- Temporary resources were safely cleaned up, or cleanup failure and exact run identity reported.
+- Completion reports changes, exact commands, **PASS / FAIL / NOT RUN**, counts where available, environment/cleanup limits, unresolved assumptions/risks and next steps. A CI configuration or previous-session result is not fresh passing evidence; installation/discovery is not proof of model activation.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

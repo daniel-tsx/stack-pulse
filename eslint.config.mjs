@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Pinned third-party skill examples are verified by sync-agent-skills.mjs.
+    '.agents/skills/**',
+    '.claude/skills/**',
   ]),
 ])
 

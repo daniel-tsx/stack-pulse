@@ -93,6 +93,8 @@ curl -H "Authorization: Bearer <CRON_SECRET>" "http://localhost:3000/api/cron/fe
 
 Detailed docs for contributors and AI agents live in [`docs/`](docs/). Start at [`docs/AGENT_START_HERE.md`](docs/AGENT_START_HERE.md). For UI conventions and architecture, see [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md).
 
+The repository's [AI engineering workflow](docs/operations/ai-workflow.md) covers shared agent instructions, pinned local skills and compatibility checks. Run `node scripts/sync-agent-skills.mjs --check` to verify skill integrity; see [verification](docs/operations/verification.md) for risk-based application checks and isolated-service boundaries.
+
 ## Deploying
 
 The project ships with a [`vercel.json`](vercel.json) that schedules the release fetcher **twice daily** (00:00 and 12:00 UTC) and the digest sender **weekly** (Mondays 14:00 UTC). To deploy:

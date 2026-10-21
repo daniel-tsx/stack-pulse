@@ -46,6 +46,7 @@ Index for humans and AI agents. Agents should start at [AGENT_START_HERE.md](./A
 | [database.md](./operations/database.md) | Schema, migrations, seed |
 | [deployment.md](./operations/deployment.md) | Vercel, cron, production checks |
 | [verification.md](./operations/verification.md) | Typecheck, lint, build, manual checks |
+| [ai-workflow.md](./operations/ai-workflow.md) | Shared agent instructions, pinned skills, synchronization and compatibility pilot |
 | [skill-staging-verification.md](./operations/skill-staging-verification.md) | Skill Updates isolation, live approval gates, budgets and rollout sequence |
 | [typescript.md](./operations/typescript.md) | Why TypeScript 7 and 6 are both installed |
 | [navigation-and-caching.md](./operations/navigation-and-caching.md) | Cache Components, Partial Prefetching, Suspense, and cache policy |

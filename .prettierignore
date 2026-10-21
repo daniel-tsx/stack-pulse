@@ -2,3 +2,5 @@ node_modules
 .next
 drizzle
 pnpm-lock.yaml
+.agents/skills
+.claude/skills

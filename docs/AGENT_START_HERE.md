@@ -12,7 +12,7 @@ StackPulse is a Next.js app that tracks GitHub releases for developer stacks, AI
 1. This file (every session)
 2. [`README.md`](../README.md) — product overview and quick start
 3. [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) — **UI design system** + architecture (required for any UI/page work)
-4. [`AGENTS.md`](../AGENTS.md) / [`CLAUDE.md`](../CLAUDE.md) — behavioral rules
+4. [`AGENTS.md`](../AGENTS.md) — shared rules/routing; [`CLAUDE.md`](../CLAUDE.md) imports them
 5. Task-specific doc from [`docs/README.md`](./README.md)
 6. Source files listed in the **source-of-truth map** below before changing behavior
 
@@ -86,6 +86,7 @@ Old Drizzle snapshots (`drizzle/meta/0000_snapshot.json`, `0001`) still mention 
 | Deploy & cron | `vercel.json`, README | [operations/deployment.md](./operations/deployment.md) | Vercel Cron auth via `CRON_SECRET` |
 | Skill Updates staging | Guarded tests and diagnostic scripts | [operations/skill-staging-verification.md](./operations/skill-staging-verification.md) | Hosted checks require explicit approval; skill cron registration disabled |
 | Local dev | `package.json` scripts | [operations/local-development.md](./operations/local-development.md) | Focused cron suite: `pnpm test:cron` |
+| AI engineering workflow | `AGENTS.md`, `CLAUDE.md`, `.agents/skills/`, sync script | [operations/ai-workflow.md](./operations/ai-workflow.md), [operations/verification.md](./operations/verification.md) | Pinned local skills, conditional routing, integrity CI and risk-based checks |
 | Navigation + caching | `next.config.ts`, `src/app/**/loading.tsx`, cached data helpers | [operations/navigation-and-caching.md](./operations/navigation-and-caching.md) | Cache Components + Partial Prefetching |
 | Themes | `components/theme-provider.tsx`, `components/theme-switcher.tsx`, `app/globals.css` | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md#theme-behavior-and-compatible-components) | Dark default; localStorage preference; root `data-theme`; Tailwind inline aliases |
 | Digest | `src/lib/digest.ts`, `digestSubscribers` table, `subscribeToDigest` | [features/digest-signup.md](./features/digest-signup.md) | Capture + weekly Resend send + unsubscribe |
@@ -122,6 +123,8 @@ When editing a doc, set status in the first lines. Move completed plans to `docs
 ## Verification commands
 
 ```bash
+node scripts/sync-agent-skills.mjs --check
+pnpm test:agent-workflow # Sync integrity regression tests; no services
 pnpm typecheck        # TypeScript 7
 pnpm typecheck:ts6    # TypeScript 6, for comparing during the TS 7 migration
 pnpm lint

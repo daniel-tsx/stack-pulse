@@ -2,9 +2,49 @@
 
 **Status:** current
 
+## Risk-based verification
+
+Select checks for the actual changed boundary. [AGENTS.md](../../AGENTS.md) owns routing and completion rules; [AI workflow](ai-workflow.md) owns skill integrity/discovery and read-only pilot prompts.
+
+| Change | Required evidence |
+| --- | --- |
+| Documentation or trivial styling | Edited links/statuses, whitespace and relevant static/visual checks; no Docker requirement. |
+| Agent workflow tooling | `node scripts/sync-agent-skills.mjs --check`, `pnpm test:agent-workflow`, YAML/frontmatter checks after skill edits, and applicable lint/type checks. Discovery and behavioral activation are separate. |
+| Pure application logic | Focused unit tests plus applicable typecheck/lint/build checks; containers only when a real affected boundary needs them. |
+| Migrations, SQL constraints/indexes, transactions, persistence, locks or concurrency | Relevant application integration/migration tests against real disposable PostgreSQL. Existing ownership-verified native PostgreSQL is suitable; Docker is an option, not a requirement to replace it. Mocks cannot prove SQL semantics. |
+| New service boundaries | Real isolated application-level integration across those boundaries; introduce infrastructure only when existing behavior justifies it. StackPulse currently has no Redis/broker/worker stack. |
+| Neon HTTP, auth, live AI or notifications | Separate provider-specific evidence in an explicitly approved isolated environment; local SQL does not verify hosted transport, OAuth, billing or delivery. |
+
+Always report exact command, scope, **PASS / FAIL / NOT RUN**, executed/passed/failed/skipped counts when available, environment limits, cleanup and remaining unverified boundaries. Zero executed tests or unexpected skips do not establish an integration PASS. A green process with intentionally skipped SQL/HTTP cases is only evidence for the cases executed. Do not replace missing integration evidence with mock results or a healthy service/container.
+
+If Docker or another required isolated environment cannot run, do not bypass restrictions: mark affected checks NOT RUN, explain missing evidence and continue unrelated safe work. Do not call unverified integration behavior production-ready. Builds can query `.env` through Next.js prerendering; inspect the target first and do not run database-backed builds/pages against unknown or production data without approval.
+
+### Current PostgreSQL boundaries
+
+- `pnpm test:cron` mocks GitHub, AI, database and notification boundaries; it is not SQL integration evidence.
+- `pnpm test:votes` combines offline API/UI contracts, four guarded SQL integration tests and optional real HTTP cases. SQL accepts an explicit loopback test URL and uses random schemas; the caller must independently verify ownership before supplying it. HTTP requires a separately verified isolated app/database, not just a loopback app URL.
+- `pnpm test:skills` mixes offline cases with SQL, local SDK/HTTP and migration-rehearsal cases guarded by both `SKILL_TEST_DATABASE_URL` and `SKILL_TEST_TARGET_FILE`. These verify workspace-owned data directory/PID/system identity before writes. Follow the [staging runbook](skill-staging-verification.md), not an unverified copied ownership proof.
+- Production uses `@neondatabase/serverless` over HTTP with Drizzle neon-http. Vote/skill SQL tests use a local TCP-backed test client. Skill HTTP tests additionally exercise the actual SDK via a loopback HTTP bridge; this still does not prove hosted Neon behavior. Cloud-connected tests require explicit approval and dedicated disposable targets.
+
+There is no checked-in Compose stack or Docker integration runner. Do not invent `pnpm test:integration:docker` or treat these suites' default skips as Docker coverage. Containerizing the skill tests requires a reviewed ownership-proof design; do not weaken their native-cluster guard to make a container fit. Reuse existing application tests if a future task justifies a small runner, and test its isolation/failure/cleanup paths before enabling it. CI currently checks only agent workflow integrity; it provisions no database services.
+
+### Safe Docker execution
+
+If a future task starts Docker services for integration verification:
+
+1. Generate a unique Compose project/container identity. Use disposable run-owned volumes/networks and dynamically allocated ports bound to localhost. Verify ownership; never attach an existing developer/production database or unknown volume/network.
+2. Validate the **effective** Compose configuration before startup. Reject external/shared resources, explicit shared names, unexpected host binds, host networking and unsafe dependencies. Use only intended test services and disposable fixture credentials. Do not pass production secrets.
+3. Explicitly override inherited database URLs and unsafe test settings; prevent dotenv/ambient configuration from restoring live credentials. Do not start cron/workers/consumers that could call GitHub, OpenRouter, Resend or webhooks. A service health check is only readiness to run tests.
+4. Run relevant application tests and inspect their counts/results. Reject zero execution or unexpected skips. Keep failures visible even if cleanup succeeds.
+5. Attempt scoped cleanup after success, failure, partial startup and handled interruption. Remove only this run's resources; report cleanup failure and retain the run identity plus the exact scoped recovery command. Never run global `docker system prune` / `docker volume prune`, or developer-project `down --volumes`.
+
+No Docker stack is required for this workflow migration, and no containers are started by the new workflow tests.
+
 ## Automated
 
 ```bash
+node scripts/sync-agent-skills.mjs --check
+pnpm test:agent-workflow # Dependency-free sync regression tests; no app/service calls
 pnpm typecheck        # TypeScript 7 (`tsc`)
 pnpm typecheck:ts6    # TypeScript 6 (`tsc6`) — same tsconfig, for migration comparison
 pnpm lint
