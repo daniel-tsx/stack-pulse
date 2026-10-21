@@ -187,6 +187,9 @@ export default async function LandingPage() {
           >
             stacks
           </Link>
+          <Link href="/skills" className="text-dust transition-colors hover:text-lime">
+            skills
+          </Link>
           <Link
             href="/dashboard"
             className="hidden text-dust transition-colors hover:text-lime sm:inline"

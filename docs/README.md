@@ -33,6 +33,7 @@ Index for humans and AI agents. Agents should start at [AGENT_START_HERE.md](./A
 | [release-feed.md](./features/release-feed.md) | Dashboard feed, filters, read state |
 | [ai-summarization.md](./features/ai-summarization.md) | OpenRouter summarisation + advice |
 | [public-stacks.md](./features/public-stacks.md) | `/stacks` SEO pages |
+| [agent-skill-updates.md](./features/agent-skill-updates.md) | Curated skill revisions, durable ingestion, impact reports and rollout |
 | [digest-signup.md](./features/digest-signup.md) | Email capture (no sender yet) |
 | [server-actions.md](./features/server-actions.md) | `src/lib/actions.ts` |
 
@@ -45,6 +46,7 @@ Index for humans and AI agents. Agents should start at [AGENT_START_HERE.md](./A
 | [database.md](./operations/database.md) | Schema, migrations, seed |
 | [deployment.md](./operations/deployment.md) | Vercel, cron, production checks |
 | [verification.md](./operations/verification.md) | Typecheck, lint, build, manual checks |
+| [skill-staging-verification.md](./operations/skill-staging-verification.md) | Skill Updates isolation, live approval gates, budgets and rollout sequence |
 | [typescript.md](./operations/typescript.md) | Why TypeScript 7 and 6 are both installed |
 | [navigation-and-caching.md](./operations/navigation-and-caching.md) | Cache Components, Partial Prefetching, Suspense, and cache policy |
 

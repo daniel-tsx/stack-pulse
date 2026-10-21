@@ -69,6 +69,9 @@ export default async function StacksPage() {
           <Link href="/" className="hover:text-dust transition-colors">
             home
           </Link>
+          <Link href="/skills" className="hover:text-lime transition-colors">
+            skills
+          </Link>
           <Link href="/sign-in" className="text-lime hover:underline">
             track stack
           </Link>

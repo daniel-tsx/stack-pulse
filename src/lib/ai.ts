@@ -14,7 +14,7 @@ type OpenRouterChatParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsNo
 
 let openai: OpenAI | null = null
 
-function getOpenAI() {
+export function getOpenAI() {
   if (!openai) {
     const apiKey = process.env.OPENROUTER_API_KEY
     if (!apiKey) {

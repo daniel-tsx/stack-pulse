@@ -29,6 +29,7 @@ Trust code over docs when they disagree. Surface drift; update docs only when th
 | Feed | `/dashboard` — virtualised release feed with importance, read/unread, signal, tech, search filters. |
 | AI chat | Authenticated POST `/api/release-advice` — upgrade Q&A on a release. |
 | Public SEO | `/stacks`, `/stacks/[slug]` — public release pages (20 releases/stack). |
+| Agent skills | `/skills` — ten curated sources, revision/tree detection, separate durable analysis cron. See [agent skill updates](./features/agent-skill-updates.md). |
 | Digest | Landing + public stack pages collect emails into `digest_subscribers`. Weekly digest **sends via Resend** (`/api/cron/send-digest`, Mondays 14:00 UTC) when `RESEND_API_KEY` + `DIGEST_FROM_EMAIL` are set; one-click unsubscribe at `/digest/unsubscribe`. |
 | Cron | Fetches releases for **all registry stacks** + custom repos followed by ≥1 user. Custom repos also fetch immediately on add. |
 | MCP | Public read-only MCP server at `/api/mcp/mcp` (streamable HTTP) — `list_stacks`, `get_releases`, `get_upgrade_plan`, `search_releases`. See [features/mcp-server.md](./features/mcp-server.md). |
@@ -76,12 +77,14 @@ Old Drizzle snapshots (`drizzle/meta/0000_snapshot.json`, `0001`) still mention 
 | DB schema | `src/db/schema.ts`, `drizzle/` | [operations/database.md](./operations/database.md), [database-architecture.html](./database-architecture.html) | Migrations in `drizzle/` |
 | Architecture (HTML) | `docs/architecture/` | [architecture/index.html](./architecture/index.html) | System, security, API, ADRs |
 | Release ingestion | `src/lib/release-ingestion.ts`, `src/lib/github.ts` | [features/release-ingestion.md](./features/release-ingestion.md) | Cron + custom-repo trigger |
+| Agent skill updates | `src/lib/skill-*.ts`, `src/lib/public-skills.ts`, `src/app/skills/` | [features/agent-skill-updates.md](./features/agent-skill-updates.md) | Separate cron, migration 0010, manual seed |
 | AI summarisation | `src/lib/ai.ts` | [features/ai-summarization.md](./features/ai-summarization.md) | OpenRouter, Zod validation |
 | Release feed | `src/lib/release-feed.ts`, `src/components/dashboard/release-feed.tsx` | [features/release-feed.md](./features/release-feed.md) | Filters, virtualisation, advice UI |
 | Public stacks | `src/lib/public-stacks.ts`, `src/app/stacks/**` | [features/public-stacks.md](./features/public-stacks.md) | SEO pages, JSON-LD |
 | Server actions | `src/lib/actions.ts` | [features/server-actions.md](./features/server-actions.md) | Prefs, digest, read state, custom repos |
 | Env vars | `.env.example` | [operations/environment-variables.md](./operations/environment-variables.md) | Canonical list |
 | Deploy & cron | `vercel.json`, README | [operations/deployment.md](./operations/deployment.md) | Vercel Cron auth via `CRON_SECRET` |
+| Skill Updates staging | Guarded tests and diagnostic scripts | [operations/skill-staging-verification.md](./operations/skill-staging-verification.md) | Hosted checks require explicit approval; skill cron registration disabled |
 | Local dev | `package.json` scripts | [operations/local-development.md](./operations/local-development.md) | Focused cron suite: `pnpm test:cron` |
 | Navigation + caching | `next.config.ts`, `src/app/**/loading.tsx`, cached data helpers | [operations/navigation-and-caching.md](./operations/navigation-and-caching.md) | Cache Components + Partial Prefetching |
 | Themes | `components/theme-provider.tsx`, `components/theme-switcher.tsx`, `app/globals.css` | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md#theme-behavior-and-compatible-components) | Dark default; localStorage preference; root `data-theme`; Tailwind inline aliases |

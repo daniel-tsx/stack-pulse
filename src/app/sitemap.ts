@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next'
 import { cacheLife } from 'next/cache'
 
 import { getPublicStackSlugs } from '@/lib/public-stacks'
+import { SKILL_CATALOG } from '@/lib/skill-catalog'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   'use cache'
@@ -12,6 +13,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const stacks = await getPublicStackSlugs()
 
   return [
+    { url: `${base}/skills`, changeFrequency: 'daily', priority: 0.8 },
+    ...SKILL_CATALOG.map(skill => ({ url: `${base}/skills/${skill.slug}`, changeFrequency: 'daily' as const, priority: 0.7 })),
     {
       url: `${base}/`,
       lastModified: now,

@@ -10,6 +10,8 @@ pnpm typecheck:ts6    # TypeScript 6 (`tsc6`) — same tsconfig, for migration c
 pnpm lint
 pnpm test:cron        # Node test runner; mocked GitHub, AI, DB and webhook dependencies
 pnpm test:theme       # Theme initialization and Light token contrast
+pnpm test:skills      # SQL tests require SKILL_TEST_DATABASE_URL plus SKILL_TEST_TARGET_FILE ownership proof
+pnpm skills:eval      # Offline synthetic contracts; no paid model calls
 pnpm test:votes       # Vote UI states, API/auth/redirect checks; DB cases skip without explicit isolated URL
 pnpm build
 ```
@@ -43,6 +45,10 @@ First classify the configured database without printing credentials. Do not requ
 On an isolated local database, the real API with valid auth configuration returned `500` / PostgreSQL `42P01` before migration `0009`, then `200` after applying that exact migration. Missing required production-mode auth configuration also returned `500`, before any SQL. Development mode permits missing GitHub credentials, so their absence alone does not explain a development-mode vote GET failure. The production schema/configuration still needs operator verification; the local reproduction is not evidence that production is missing the table.
 
 If the error persists after an approved migration, the operator should distinguish schema state (`release_votes` and the migration journal), database connectivity, and Better Auth configuration. A follow-up should record only a sanitized operation/error classification (such as SQLSTATE) server-side; do not log database URLs, session tokens, SQL parameters or raw exceptions containing secrets.
+
+## Skill Updates staging gates
+
+The [Skill Updates staging runbook](skill-staging-verification.md) records current evidence, exact ownership guards, zero-spend plans, approval-gated Neon/OpenRouter commands, budgets, cleanup and migration/cron sequencing. It distinguishes local PostgreSQL and actual SDK fault tests from unrun hosted verification. No test may use the checkout's remote `.env` as a fallback.
 
 ## Git hygiene
 

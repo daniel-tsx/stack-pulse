@@ -14,8 +14,61 @@ import {
   check,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
+import type { SkillEvidence, SkillTelemetry } from '@/lib/skill-types'
+import type { SkillReport } from '@/lib/skill-analysis'
 
 export const importanceLevel = pgEnum('importance_level', ['low', 'medium', 'high', 'critical'])
+
+export const agentSkills = pgTable('agent_skills', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  repository: text('repository').notNull(),
+  directory: text('directory').notNull(),
+  description: text('description').notNull(),
+  sourceUrl: text('source_url').notNull(),
+  tracking: boolean('tracking').notNull().default(true),
+  baselineRevision: text('baseline_revision'),
+  observedRevision: text('observed_revision'),
+  observedTree: text('observed_tree'),
+  branch: text('branch'),
+  checkStatus: text('check_status').notNull().default('not_checked'),
+  checkError: text('check_error'),
+  lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+  lastSuccessAt: timestamp('last_success_at', { withTimezone: true }),
+  leaseToken: uuid('lease_token'),
+  leaseUntil: timestamp('lease_until', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  unique('agent_skills_source_unique').on(t.repository, t.directory),
+  check('agent_skills_repository_normalized', sql`${t.repository} = lower(${t.repository})`),
+  check('agent_skills_directory_normalized', sql`${t.directory} ~ '^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$' and ${t.directory} !~ '(^|/)[.]{1,2}(/|$)'`),
+  check('agent_skills_check_status', sql`${t.checkStatus} in ('not_checked', 'ok', 'changed', 'missing', 'failed')`),
+])
+
+export const agentSkillUpdates = pgTable('agent_skill_updates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  skillId: uuid('skill_id').notNull().references(() => agentSkills.id, { onDelete: 'restrict' }),
+  previousRevision: text('previous_revision').notNull(),
+  newRevision: text('new_revision').notNull(),
+  previousTree: text('previous_tree'),
+  newTree: text('new_tree'),
+  evidence: jsonb('evidence').$type<SkillEvidence>(),
+  analysisStatus: text('analysis_status').notNull().default('pending'),
+  analysisAttempts: integer('analysis_attempts').notNull().default(0),
+  analysisError: text('analysis_error'),
+  report: jsonb('report').$type<SkillReport>(),
+  telemetry: jsonb('telemetry').$type<SkillTelemetry>(),
+  analyzedAt: timestamp('analyzed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  unique('agent_skill_updates_transition_unique').on(t.skillId, t.previousRevision, t.newRevision),
+  index('agent_skill_updates_skill_created_idx').on(t.skillId, t.createdAt),
+  index('agent_skill_updates_pending_idx').on(t.analysisStatus, t.createdAt),
+  check('agent_skill_updates_status', sql`${t.analysisStatus} in ('pending', 'analyzing', 'failed', 'complete')`),
+  check('agent_skill_updates_attempts', sql`${t.analysisAttempts} >= 0`),
+])
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),

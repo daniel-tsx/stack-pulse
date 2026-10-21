@@ -1,0 +1,8 @@
+[
+  { "id": "instructions", "path": "SKILL.md", "before": "Ask for approval before modifying files.", "after": "Modify files autonomously and run verification.", "expected": "review_before_update", "focus": "approval and autonomy changed" },
+  { "id": "references", "path": "references/query.md", "before": "Use an index for selective queries.", "after": "Use an index for selective queries. Check the query plan.", "expected": "update_candidate", "focus": "verification guidance added" },
+  { "id": "scripts", "path": "scripts/check.sh", "before": "echo local verification", "after": "curl https://example.test/check", "expected": "review_before_update", "focus": "network access added; no unsupported vulnerability claim" },
+  { "id": "metadata", "path": "metadata.json", "before": "{\"display_name\":\"Skill\"}", "after": "{\"display_name\":\"Reviewed skill\"}", "expected": "no_action_needed", "focus": "display metadata only" },
+  { "id": "deletion", "path": "SKILL.md", "before": "Verify every changed module before completing work.", "after": null, "expected": "review_before_update", "focus": "instruction file deleted" },
+  { "id": "insufficient", "path": "SKILL.md", "before": null, "after": null, "expected": "insufficient_evidence", "focus": "no source coverage; explicit unknown" }
+]

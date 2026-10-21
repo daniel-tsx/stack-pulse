@@ -2,6 +2,8 @@
 
 **Status:** current
 
+Skill Updates verification uses separate test-only variables and ignored environment/target files, documented in the [staging runbook](skill-staging-verification.md). `SKILL_TEST_DATABASE_URL` plus `SKILL_TEST_TARGET_FILE` authorize only an owned local cluster; `SKILL_STAGING_DATABASE_URL` plus an approved resource manifest/run ID select disposable Neon; `SKILL_EVAL_OPENROUTER_API_KEY` plus campaign approval select a capped synthetic evaluation key. These diagnostics never fall back to the application's `DATABASE_URL` or OpenRouter key. Do not add test credentials to production environment settings.
+
 Canonical template: [`.env.example`](../../.env.example)
 
 ## Required for production deploy
@@ -23,6 +25,7 @@ Canonical template: [`.env.example`](../../.env.example)
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `OPENROUTER_MODEL` | `deepseek/deepseek-chat` | OpenRouter model id |
+| `SKILL_UPDATES_MODEL` | `deepseek/deepseek-v4-flash-0731` | Separate strict skill impact analyzer; does not change releases |
 | `BETTER_AUTH_API_KEY` | — | Better Auth Dash at dash.better-auth.com |
 | `RESEND_API_KEY` | — | Weekly digest emails (digest cron no-ops without it) |
 | `DIGEST_FROM_EMAIL` | — | Verified Resend sender, e.g. `StackPulse <digest@domain.com>` |

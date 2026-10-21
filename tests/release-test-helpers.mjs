@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url)
 export function loadTs(file, overrides = {}, globals = {}) {
   const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
   const compiled = ts.transpileModule(source, {
+    fileName: file,
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText
   const compiledModule = { exports: {} }

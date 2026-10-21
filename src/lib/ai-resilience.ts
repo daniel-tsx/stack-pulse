@@ -176,7 +176,7 @@ type RequestOptions = { maxRetries: 0; timeout: number; signal: AbortSignal }
 // The client may be reused, but this queue/cooldown belongs only to its caller's execution.
 export function createAiExecutionContext(
   deadline = Date.now() + 90_000,
-  runtime: Partial<Runtime> & { concurrency?: 1 | 2 } = {},
+  runtime: Partial<Runtime> & { concurrency?: 1 | 2; maxAttempts?: 1 | 2 | 3 } = {},
   execution?: ExecutionBudget,
 ) {
   const clock: Runtime = {
@@ -192,6 +192,7 @@ export function createAiExecutionContext(
   let lastTransient: AiProviderError | undefined
   let blocked: AiProviderError | undefined
   const stats = { succeeded: 0, failed: 0, attempts: 0, retries: 0, cooldowns: 0 }
+  const maxAttempts = runtime.maxAttempts === 1 ? 1 : runtime.maxAttempts === 2 ? 2 : MAX_ATTEMPTS
   const remainingMs = () => Math.min(deadline - clock.now(), execution?.remainingMs() ?? Infinity)
   const measure = <T>(stage: string, operation: () => Promise<T>) =>
     execution ? execution.measure(stage, operation) : operation()
@@ -298,7 +299,7 @@ export function createAiExecutionContext(
           error.attempt = attempt
           error.model = model
           if (!error.retryable) throw error
-          if (attempt >= MAX_ATTEMPTS) {
+          if (attempt >= maxAttempts) {
             error.reason = 'RETRY_EXHAUSTED'
             throw error
           }

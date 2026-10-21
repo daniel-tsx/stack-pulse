@@ -1,5 +1,7 @@
 # StackPulse
 
+**Status:** current
+
 > **Every release. One feed.**
 > Daily AI-distilled summaries of the latest framework and library releases. Follow the tools you ship with, never miss a breaking change.
 
@@ -8,6 +10,8 @@ StackPulse is a non-profit, open-source service for developers. It watches a lis
 ---
 
 ## Features
+
+- **Agent skill updates** — ten curated skills, immutable revision evidence, potential behavior changes and advisory impact reports at `/skills`. Separate ingestion and model configuration; [setup and rollout](docs/features/agent-skill-updates.md).
 
 - **GitHub-only auth** via Better Auth. No email, no password, no spam.
 - **A registry of 90+ stacks** (React, Next.js, Vue, Tailwind, Drizzle, Astro, Bun, Svelte, Playwright, Electron, the AI SDKs, …) plus an "add any GitHub repo" escape hatch.

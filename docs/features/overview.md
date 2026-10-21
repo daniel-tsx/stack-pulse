@@ -15,6 +15,10 @@ App Router route groups — see [DESIGN_SYSTEM.md](../DESIGN_SYSTEM.md) for UI t
 | `/dashboard` | `src/app/(dashboard)/dashboard/page.tsx` | optional | Release feed (redirects to onboarding if signed in with no stacks) |
 | `/settings` | `src/app/(dashboard)/settings/page.tsx` | yes | Slack/Discord webhook notification settings |
 | `/stacks` | `src/app/stacks/page.tsx` | no | Public stack index |
+| `/skills` | `src/app/skills/page.tsx` | no | Curated skills and recent update events |
+| `/skills/[slug]` | `src/app/skills/[slug]/page.tsx` | no | Skill source state and history |
+| `/skills/[slug]/updates/[updateId]` | `src/app/skills/[slug]/updates/[updateId]/page.tsx` | no | Evidence and advisory impact report |
+| `/api/cron/fetch-skill-updates` | `src/app/api/cron/fetch-skill-updates/route.ts` | `CRON_SECRET` | Independent twice-daily skill ingestion |
 | `/stacks/[slug]` | `src/app/stacks/[slug]/page.tsx` | no | Public stack release page |
 | `/stacks/[slug]/rss.xml` | `src/app/stacks/[slug]/rss.xml/route.ts` | no | RSS 2.0 feed per stack (CDN-cached 1h) |
 | `/stacks/[slug]/upgrade` | `src/app/stacks/[slug]/upgrade/page.tsx` | no | Upgrade planner: `?from=<version>` aggregates stored breaking changes/deprecations/migration steps up to latest |

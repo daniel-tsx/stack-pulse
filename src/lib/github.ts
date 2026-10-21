@@ -174,3 +174,28 @@ export async function verifyGithubAuthentication(): Promise<void> {
   const res = await requestGithub('/user', createGithubFetchContext(), false)
   await res.body?.cancel()
 }
+
+/** Bounded JSON transport for curated skill trees/blobs; shares auth and retry policy. */
+export async function requestGithubJson(path: string, context: GithubFetchContext, limit = 2_000_000): Promise<unknown> {
+  if (!/^\/repos\/[\w.-]+\/[\w.-]+\//.test(path)) throw new GithubApiError('GITHUB_REPOSITORY')
+  const res = await requestGithub(path, context)
+  const reader = res.body?.getReader()
+  if (!reader) throw new GithubApiError('GITHUB_UPSTREAM')
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > limit) throw new GithubApiError('GITHUB_UPSTREAM')
+      chunks.push(value)
+    }
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+  } catch {
+    if (context.execution?.signal.aborted) throw new ExecutionDeadlineError()
+    throw new GithubApiError('GITHUB_UPSTREAM')
+  } finally {
+    await reader.cancel().catch(() => {})
+  }
+}
