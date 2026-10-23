@@ -12,7 +12,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "typecheck:ts6": "tsc6 --noEmit",
-    "test:cron": "node --test tests/cron-recovery.test.mjs",
+    "test:cron": "node --test tests/cron-*.test.mjs",
     "test:theme": "node --test tests/theme.test.mjs",
     "test:agent-workflow": "node --test tests/agent-skills-sync.test.mjs",
     "test:skills": "node --test tests/skill-*.test.mjs",

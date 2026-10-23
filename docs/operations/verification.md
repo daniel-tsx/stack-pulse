@@ -21,7 +21,7 @@ If Docker or another required isolated environment cannot run, do not bypass res
 
 ### Current PostgreSQL boundaries
 
-- `pnpm test:cron` mocks GitHub, AI, database and notification boundaries; it is not SQL integration evidence.
+- `pnpm test:cron` runs offline recovery/throughput contracts plus an optional scheduling-query test. The latter requires `SKILL_TEST_DATABASE_URL` and `SKILL_TEST_TARGET_FILE`, reuses the skill suite's cluster ownership checks and removes its random schema. Without that explicit target it skips; offline mocks alone are not SQL integration evidence.
 - `pnpm test:votes` combines offline API/UI contracts, four guarded SQL integration tests and optional real HTTP cases. SQL accepts an explicit loopback test URL and uses random schemas; the caller must independently verify ownership before supplying it. HTTP requires a separately verified isolated app/database, not just a loopback app URL.
 - `pnpm test:skills` mixes offline cases with SQL, local SDK/HTTP and migration-rehearsal cases guarded by both `SKILL_TEST_DATABASE_URL` and `SKILL_TEST_TARGET_FILE`. These verify workspace-owned data directory/PID/system identity before writes. Follow the [staging runbook](skill-staging-verification.md), not an unverified copied ownership proof.
 - Production uses `@neondatabase/serverless` over HTTP with Drizzle neon-http. Vote/skill SQL tests use a local TCP-backed test client. Skill HTTP tests additionally exercise the actual SDK via a loopback HTTP bridge; this still does not prove hosted Neon behavior. Cloud-connected tests require explicit approval and dedicated disposable targets.
@@ -48,7 +48,7 @@ pnpm test:agent-workflow # Dependency-free sync regression tests; no app/service
 pnpm typecheck        # TypeScript 7 (`tsc`)
 pnpm typecheck:ts6    # TypeScript 6 (`tsc6`) — same tsconfig, for migration comparison
 pnpm lint
-pnpm test:cron        # Node test runner; mocked GitHub, AI, DB and webhook dependencies
+pnpm test:cron        # Offline recovery/throughput; scheduling SQL requires the owned skill-test target
 pnpm test:theme       # Theme initialization and Light token contrast
 pnpm test:skills      # SQL tests require SKILL_TEST_DATABASE_URL plus SKILL_TEST_TARGET_FILE ownership proof
 pnpm skills:eval      # Offline synthetic contracts; no paid model calls

@@ -4,6 +4,7 @@ import { technologies, userTechPreferences } from '@/db/schema'
 import {
   createReleaseFetchRun,
   finishReleaseFetchRun,
+  orderCronRepositories,
   processTechReleases,
   type IngestionError,
 } from '@/lib/release-ingestion'
@@ -19,7 +20,7 @@ import {
 
 export const maxDuration = 300
 
-const CHUNK_SIZE = 6
+const REPOSITORY_CONCURRENCY = 6
 // Cooperative work cutoff; cleanup has separate bounded reserves before Vercel's limit.
 const TIME_BUDGET_MS = 270_000
 const FINALIZATION_DEADLINE_MS = 285_000
@@ -125,10 +126,11 @@ export async function GET(request: NextRequest) {
 
       // Registry stacks always fetch; custom repositories require a follower.
       const followedIds = new Set(followedRows.map((row) => row.techId))
-      const allTechs = allTechRows.filter(
+      const selectedTechs = allTechRows.filter(
         (tech) => tech.category !== 'custom' || followedIds.has(tech.id),
       )
-      summary.repositoriesPlanned = allTechs.length
+      summary.repositoriesPlanned = selectedTechs.length
+      const allTechs = await orderCronRepositories(selectedTechs, execution)
       execution.check(1000)
       runId = await createReleaseFetchRun('cron', execution)
 
@@ -142,29 +144,41 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      // A confirmed 401 blocks both new chunks and retries in already-running fetchers.
-      // Already-running requests settle normally; successful inserts remain committed.
-      for (let i = 0; i < allTechs.length && !fatal; i += CHUNK_SIZE) {
-        if (execution.remainingMs() < 1000 || execution.signal.aborted) {
-          runFailure({
-            category: 'TIME_BUDGET',
-            scope: 'global',
-            repository: null,
-            message: 'Cron time budget reached; remaining repositories deferred',
-          })
-          break
-        }
-
-        const chunk = allTechs.slice(i, i + CHUNK_SIZE)
-        summary.repositoriesAttempted += chunk.length
-        const settled = await Promise.allSettled(
-          chunk.map((tech) => processTechReleases(tech, githubContext, aiContext, execution)),
-        )
-        for (const [index, result] of settled.entries()) {
-          if (result.status === 'fulfilled') {
-            const value = result.value
-            results.push(value.detail)
-            insertedReleaseIds.push(...value.insertedReleaseIds)
+      let nextIndex = 0
+      let deadlineReported = false
+      const insertedByRepository: string[][] = []
+      // Refill idle slots without increasing repository or AI concurrency. A fatal
+      // result stops admission; all already-started processors settle before cleanup.
+      async function worker() {
+        while (nextIndex < allTechs.length && !fatal) {
+          if (execution.remainingMs() < 1000 || execution.signal.aborted) {
+            if (!deadlineReported) {
+              deadlineReported = true
+              runFailure({
+                category: 'TIME_BUDGET',
+                scope: 'global',
+                repository: null,
+                message: 'Cron time budget reached; remaining repositories deferred',
+              })
+            }
+            return
+          }
+          const index = nextIndex++
+          const tech = allTechs[index]
+          summary.repositoriesAttempted++
+          try {
+            const value = await processTechReleases(
+              tech,
+              githubContext,
+              aiContext,
+              execution,
+              () => {
+                fatal = true
+              },
+            )
+            // Persist admission order, rather than completion order, for the next run.
+            results[index] = value.detail
+            insertedByRepository[index] = value.insertedReleaseIds
             summary.repositoriesSucceeded += value.detail.errors === 0 ? 1 : 0
             summary.repositoriesFailed += value.detail.errors > 0 ? 1 : 0
             summary.releasesDiscovered += value.releasesDiscovered
@@ -176,23 +190,27 @@ export async function GET(request: NextRequest) {
             summary.releasesCancelled += value.releasesCancelled
             releaseCountersComplete &&= value.releaseCountersComplete
             for (const failure of value.failures) recordFailure(failure)
-          } else {
+          } catch {
             // A rejected processor may have committed work before throwing. Report only
             // confirmed counts, and require DB inspection rather than estimating its inserts.
             releaseCountersComplete = false
             const failure: IngestionError = {
               category: 'PROCESSING',
               scope: 'repository',
-              repository: chunk[index].name,
+              repository: tech.name,
               message: 'Repository processor failed unexpectedly',
             }
-            results.push({ tech: chunk[index].name, inserted: 0, errors: 1 })
+            results[index] = { tech: tech.name, inserted: 0, errors: 1 }
             summary.repositoriesFailed++
             recordFailure(failure)
             console.error('release processing failed', failure)
           }
         }
       }
+      await Promise.all(
+        Array.from({ length: Math.min(REPOSITORY_CONCURRENCY, allTechs.length) }, () => worker()),
+      )
+      insertedReleaseIds.push(...insertedByRepository.flat())
     } catch (cause) {
       const cancelled = cause instanceof ExecutionDeadlineError || execution.signal.aborted
       runFailure({

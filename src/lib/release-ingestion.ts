@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, isNotNull } from 'drizzle-orm'
 
 import { getDb } from '@/db'
 import { ExecutionDeadlineError, type ExecutionBudget } from '@/lib/execution-budget'
@@ -66,6 +66,7 @@ export async function processTechReleases(
   githubContext?: GithubFetchContext,
   aiContext: AiExecutionContext = createAiExecutionContext(),
   execution?: ExecutionBudget,
+  onGlobalDatabaseFailure?: () => void,
 ): Promise<ProcessTechResult> {
   let inserted = 0
   let releasesProcessed = 0
@@ -81,6 +82,8 @@ export async function processTechReleases(
 
   function recordFailure(failure: IngestionError) {
     failures.push(failure)
+    // Stop admission immediately; the returned result still owns failure counts.
+    if (failure.category === 'DATABASE' && failure.scope === 'global') onGlobalDatabaseFailure?.()
     console.error('release processing failed', failure)
   }
 
@@ -287,6 +290,25 @@ export type FetchRunRow = {
   errors: number
   startedAt: Date
   finishedAt: Date | null
+}
+
+// Existing run details are an admission-order cursor, including failed processors.
+// Rotate after the last attempt so a deadline cannot repeatedly starve the same tail.
+export async function orderCronRepositories(techs: Tech[], execution: ExecutionBudget) {
+  const ordered = [...techs].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  if (ordered.length === 0) return ordered
+  execution.check(1000)
+  const [previous] = await execution.measure('repositorySelection', () =>
+    getDb(execution.signal)
+      .select({ details: releaseFetchRuns.details })
+      .from(releaseFetchRuns)
+      .where(and(eq(releaseFetchRuns.trigger, 'cron'), isNotNull(releaseFetchRuns.finishedAt)))
+      .orderBy(desc(releaseFetchRuns.startedAt))
+      .limit(1),
+  )
+  const last = Array.isArray(previous?.details) ? previous.details.at(-1)?.tech : undefined
+  const next = ordered.findIndex((tech) => tech.name === last) + 1
+  return [...ordered.slice(next), ...ordered.slice(0, next)]
 }
 
 export async function getRecentFetchRuns(limit = 20): Promise<FetchRunRow[]> {

@@ -21,7 +21,26 @@ Registry stacks fetch regardless of followers so public `/stacks/[slug]` pages s
 
 Cron auth: `Authorization: Bearer {CRON_SECRET}` (timing-safe compare).
 
-Processing runs in chunks of 6 techs in parallel (`CHUNK_SIZE` in cron route).
+Cron runs at most 6 repository processors in parallel (`REPOSITORY_CONCURRENCY` in the
+cron route), refilling each slot when its processor settles. A slow repository no longer
+holds up every repository in the next batch. AI still shares one active lane across all
+processors, including retries and cooldowns.
+
+Eligible repositories are sorted by name and rotated to start after the last attempted
+repository in the latest started, finished `cron` run. Existing `details` remain in
+admission order even when processors finish out of order. This prevents a repeated cutoff
+from always skipping the same tail. Custom-repository runs and unfinished cron rows do not
+move the cursor. Empty/malformed history or a removed/renamed cursor repository falls back
+to name order. The read orders by the indexed run start time and uses the work cancellation
+signal; a database failure still fails setup explicitly. No new checkpoint schema or
+cross-invocation lock is introduced. Failed finalization or overlapping invocations can
+reuse an older cursor; this is best-effort fairness, not durable backlog recovery.
+
+A processor that classifies a global database failure immediately notifies cron to stop
+new repository admissions. Already-started processors still settle normally; their final
+results remain the sole source of failure counts and confirmed insert IDs. Release-specific
+SQL errors do not stop peer admission. See the [targeted P1 fix](../audits/cron-scheduler-P1-fix.md).
+
 `maxDuration = 300`. F2.1 starts a monotonic execution clock on route entry, with a
 cooperative work cutoff at 270s covering selection, GitHub discovery, filtering, AI,
 lookups and inserts. A separate reserve permits finalization until 285s and webhook
@@ -33,7 +52,7 @@ Later runs still see only the latest five releases: older gaps are not guarantee
 AI summary requests within those processors share one execution-scoped queue: one active
 summary, at most three application attempts, coordinated bounded cooldown and the same
 270s work cutoff. This does not serialize GitHub discovery. Queued AI work that cannot fit
-the budget fails explicitly; unstarted repository chunks and remaining discovered entries
+the budget fails explicitly; unstarted repositories and remaining discovered entries
 are deferred. See [AI summarization](./ai-summarization.md) for retry rules. Cancellation
 is cooperative: process termination, blocked event loops and remote commits after a lost
 HTTP response can still prevent complete cleanup. Durable reconciliation remains deferred.
@@ -83,6 +102,8 @@ work can exceed elapsed time); active operations accrue duration when they settl
 No raw provider bodies, webhook URLs, prompts or credentials are included in these logs.
 See [F2.1 recovery assessment](../audits/F2.1-review-fixes.md) for stale-running rows and
 notification uncertainty after hard termination. Existing rows are never repaired automatically.
+See the [October 23 throughput investigation](../audits/cron-throughput-2026-10-23.md)
+for measured model occupancy, starvation evidence and the scheduling regression replay.
 
 ## Schedule (code truth)
 
