@@ -1,58 +1,70 @@
 # Agent start here
 
-**Status:** current  
-**Last verified:** 2026-08-12 (code + config in repo)
+**Status:** current
+**Last verified:** 2026-08-12 (product and stack truth); reading matrix paths checked 2026-10-24
 
 StackPulse is a Next.js app that tracks GitHub releases for developer stacks, AI-summarises them via OpenRouter, and shows a filterable feed. Non-profit, self-hostable, no billing.
 
+[AGENTS.md](../AGENTS.md) owns the rules: task size, invariants, safety, skill routing and verification commands. Classify the task there first, then read what its size requires from the matrix below. Trust code over docs when they disagree; surface drift and update docs only when the task changes durable behavior.
+
 ---
 
-## Required read order
+## Read by task
 
-1. This file (every session)
-2. [`README.md`](../README.md) — product overview and quick start
-3. [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) — **UI design system** + architecture (required for any UI/page work)
-4. [`AGENTS.md`](../AGENTS.md) — shared rules/routing; [`CLAUDE.md`](../CLAUDE.md) imports them
-5. Task-specific doc from [`docs/README.md`](./README.md)
-6. Source files listed in the **source-of-truth map** below before changing behavior
+| Task                                  | Documents (T2: all; T1: the one owning the behavior)                                                                                                                                                                                                                                                                            | Code to inspect                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Routes, pages, navigation, caching    | [features/overview.md](./features/overview.md), [operations/navigation-and-caching.md](./operations/navigation-and-caching.md)                                                                                                                                                                                                  | `src/app/**`, `src/proxy.ts`, `next.config.ts`, `loading.tsx` files                                                                                                           |
+| UI, styling, themes                   | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)                                                                                                                                                                                                                                                                                          | `src/app/globals.css`, `src/components/**`, `theme-provider.tsx`, `theme-switcher.tsx`; `tests/theme.test.mjs`                                                                |
+| Auth, sessions, return paths          | [features/auth.md](./features/auth.md), [architecture/security.html](./architecture/security.html), [ADR-002](./architecture/decisions/002-better-auth.html)                                                                                                                                                                    | `src/lib/auth.ts`, `auth-client.ts`, `auth-return-path.ts`, `src/app/api/auth/[...all]/route.ts`                                                                              |
+| Schema, migrations, SQL               | [operations/database.md](./operations/database.md), [database-architecture.html](./database-architecture.html), [operations/verification.md](./operations/verification.md), [ADR-001](./architecture/decisions/001-drizzle-neon-http.html)                                                                                      | `src/db/schema.ts`, `src/db/index.ts`, `drizzle/`, `tests/*-db.test.mjs`, `tests/skill-migration.test.mjs`                                                                    |
+| Release ingestion, cron               | [features/release-ingestion.md](./features/release-ingestion.md), [features/ai-summarization.md](./features/ai-summarization.md), [operations/deployment.md](./operations/deployment.md), [ADR-003](./architecture/decisions/003-ingestion-followed-stacks.html), [ADR-004](./architecture/decisions/004-ai-before-insert.html) | `src/lib/release-ingestion.ts`, `github.ts`, `cron-auth.ts`, `execution-budget.ts`, `src/app/api/cron/**`, `vercel.json`; `tests/cron-*.test.mjs`                             |
+| AI summaries and release advice       | [features/ai-summarization.md](./features/ai-summarization.md)                                                                                                                                                                                                                                                                  | `src/lib/ai.ts`, `ai-resilience.ts`, `src/app/api/release-advice/route.ts`                                                                                                    |
+| Agent Skill Updates                   | [features/agent-skill-updates.md](./features/agent-skill-updates.md), [operations/skill-staging-verification.md](./operations/skill-staging-verification.md)                                                                                                                                                                    | `src/lib/skill-*.ts`, `public-skills.ts`, `src/app/skills/`, `src/app/api/cron/fetch-skill-updates/`, `scripts/skill-*.ts`; `tests/skill-*.test.mjs`                          |
+| Release feed, read state, votes       | [features/release-feed.md](./features/release-feed.md), [features/public-stacks.md](./features/public-stacks.md), [features/auth.md](./features/auth.md#release-voting-oauth-smoke-test)                                                                                                                                        | `src/lib/release-feed.ts`, `release-votes.ts`, `src/app/api/releases/**`, `src/components/dashboard/release-feed.tsx`, `src/components/releases/`; `tests/release-*.test.mjs` |
+| Public stacks, SEO                    | [features/public-stacks.md](./features/public-stacks.md)                                                                                                                                                                                                                                                                        | `src/lib/public-stacks.ts`, `public-releases.ts`, `src/app/stacks/**`, `sitemap.ts`, `robots.ts`                                                                              |
+| Preferences, custom repos, onboarding | [features/server-actions.md](./features/server-actions.md)                                                                                                                                                                                                                                                                      | `src/lib/actions.ts`, `stack-import.ts`, `src/app/(dashboard)/`                                                                                                               |
+| Digest, notifications                 | [features/digest-signup.md](./features/digest-signup.md), [features/notifications.md](./features/notifications.md)                                                                                                                                                                                                              | `src/lib/digest.ts`, `webhooks.ts`, `src/app/api/cron/send-digest/`, `src/app/api/digest/unsubscribe/`                                                                        |
+| MCP server                            | [features/mcp-server.md](./features/mcp-server.md)                                                                                                                                                                                                                                                                              | `src/app/api/mcp/[transport]/route.ts`, `src/lib/upgrade-plan.ts`                                                                                                             |
+| Env, deployment, monitoring           | [operations/environment-variables.md](./operations/environment-variables.md), [operations/deployment.md](./operations/deployment.md), [architecture/observability.html](./architecture/observability.html)                                                                                                                      | `.env.example`, `vercel.json`, `src/instrumentation*.ts`, `sentry.*.config.ts`                                                                                                |
+| Setup, CI, scripts, agent workflow    | [operations/local-development.md](./operations/local-development.md), [operations/verification.md](./operations/verification.md), [operations/ai-workflow.md](./operations/ai-workflow.md), [operations/typescript.md](./operations/typescript.md)                                                                              | `package.json`, `.github/workflows/ci.yml`, `scripts/`, `.agents/skill-sources.json`                                                                                          |
 
-Trust code over docs when they disagree. Surface drift; update docs only when the task changes durable behavior.
+Architecture overviews live in [architecture/index.html](./architecture/index.html); durable decisions in [architecture/decisions/](./architecture/decisions/index.html). `docs/audits/` and `docs/archive/` are historical: open one only when the task names it.
 
 ---
 
 ## Current product truth
 
-| Area | Truth (verified in code) |
-|------|--------------------------|
-| Auth | GitHub OAuth only via Better Auth. `/sign-up` redirects to `/sign-in`. |
-| Onboarding | `/onboarding` — pick up to 30 registry stacks; up to 5 custom GitHub repos; **package.json import** resolves deps via npm registry into follow suggestions. |
-| Feed | `/dashboard` — virtualised release feed with importance, read/unread, signal, tech, search filters. |
-| AI chat | Authenticated POST `/api/release-advice` — upgrade Q&A on a release. |
-| Public SEO | `/stacks`, `/stacks/[slug]` — public release pages (20 releases/stack). |
-| Agent skills | `/skills` — ten curated sources, revision/tree detection, separate durable analysis cron. See [agent skill updates](./features/agent-skill-updates.md). |
-| Digest | Landing + public stack pages collect emails into `digest_subscribers`. Weekly digest **sends via Resend** (`/api/cron/send-digest`, Mondays 14:00 UTC) when `RESEND_API_KEY` + `DIGEST_FROM_EMAIL` are set; one-click unsubscribe at `/digest/unsubscribe`. |
-| Cron | Fetches releases for **all registry stacks** + custom repos followed by ≥1 user. Custom repos also fetch immediately on add. |
-| MCP | Public read-only MCP server at `/api/mcp/mcp` (streamable HTTP) — `list_stacks`, `get_releases`, `get_upgrade_plan`, `search_releases`. See [features/mcp-server.md](./features/mcp-server.md). |
-| Notifications | `/settings` — one Slack/Discord webhook per user (`user_webhooks`), importance threshold; cron dispatches new releases post-run. See [features/notifications.md](./features/notifications.md). |
-| Billing | **None.** Lemon Squeezy columns removed in migration `0002`; do not reintroduce without explicit task. |
-| Analytics | `@vercel/analytics` in root layout only. |
-| Monitoring | `@sentry/nextjs` errors-only, gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` (fully inert without them). Configs: `src/instrumentation.ts`, `src/instrumentation-client.ts`, root `sentry.*.config.ts`. |
+| Area          | Truth (verified in code)                                                                                                                                                                                                                                    |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth          | GitHub OAuth only via Better Auth. `/sign-up` redirects to `/sign-in`.                                                                                                                                                                                      |
+| Onboarding    | `/onboarding` — pick up to 30 registry stacks; up to 5 custom GitHub repos; **package.json import** resolves deps via npm registry into follow suggestions.                                                                                                 |
+| Feed          | `/dashboard` — virtualised release feed with importance, read/unread, signal, tech, search filters.                                                                                                                                                         |
+| AI chat       | Authenticated POST `/api/release-advice` — upgrade Q&A on a release.                                                                                                                                                                                        |
+| Public SEO    | `/stacks`, `/stacks/[slug]` — public release pages (20 releases/stack).                                                                                                                                                                                     |
+| Agent skills  | `/skills` — ten curated sources, revision/tree detection, separate durable analysis cron. See [agent skill updates](./features/agent-skill-updates.md).                                                                                                     |
+| Digest        | Landing + public stack pages collect emails into `digest_subscribers`. Weekly digest **sends via Resend** (`/api/cron/send-digest`, Mondays 14:00 UTC) when `RESEND_API_KEY` + `DIGEST_FROM_EMAIL` are set; one-click unsubscribe at `/digest/unsubscribe`. |
+| Cron          | Fetches releases for **all registry stacks** + custom repos followed by ≥1 user. Custom repos also fetch immediately on add.                                                                                                                                |
+| MCP           | Public read-only MCP server at `/api/mcp/mcp` (streamable HTTP) — `list_stacks`, `get_releases`, `get_upgrade_plan`, `search_releases`. See [features/mcp-server.md](./features/mcp-server.md).                                                             |
+| Notifications | `/settings` — one Slack/Discord webhook per user (`user_webhooks`), importance threshold; cron dispatches new releases post-run. See [features/notifications.md](./features/notifications.md).                                                              |
+| Billing       | **None.** Lemon Squeezy columns removed in migration `0002`; do not reintroduce without explicit task.                                                                                                                                                      |
+| Analytics     | `@vercel/analytics` in root layout only.                                                                                                                                                                                                                    |
+| Monitoring    | `@sentry/nextjs` errors-only, gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` (fully inert without them). Configs: `src/instrumentation.ts`, `src/instrumentation-client.ts`, root `sentry.*.config.ts`.                                                   |
 
 ---
 
 ## Stack truth (from `package.json`, config, code)
 
-| Layer | Choice |
-|-------|--------|
-| Framework | Next.js 16 App Router, React 19 |
-| Language | TypeScript 7 (`tsc`). TypeScript 6 stays installed as `tsc6` because typescript-eslint still needs the TS 6 compiler API — see [operations/typescript.md](./operations/typescript.md) |
-| Styling | Tailwind CSS v4, shadcn (`base-nova`), hugeicons-react, motion |
-| Auth | `better-auth` + `@better-auth/infra` dash plugin (optional) |
-| Database | Neon Postgres (`@neondatabase/serverless`) + Drizzle ORM |
-| AI | OpenRouter via OpenAI SDK (`src/lib/ai.ts`) |
-| Data fetching (client) | TanStack Query, nuqs URL state |
-| Hosting | Vercel + Vercel Cron (`vercel.json`) |
-| Package manager | pnpm 11 |
+| Layer                  | Choice                                                                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework              | Next.js 16 App Router, React 19                                                                                                                                                       |
+| Language               | TypeScript 7 (`tsc`). TypeScript 6 stays installed as `tsc6` because typescript-eslint still needs the TS 6 compiler API — see [operations/typescript.md](./operations/typescript.md) |
+| Styling                | Tailwind CSS v4, shadcn (`base-nova`), hugeicons-react, motion                                                                                                                        |
+| Auth                   | `better-auth` + `@better-auth/infra` dash plugin (optional)                                                                                                                           |
+| Database               | Neon Postgres (`@neondatabase/serverless`) + Drizzle ORM                                                                                                                              |
+| AI                     | OpenRouter via OpenAI SDK (`src/lib/ai.ts`)                                                                                                                                           |
+| Data fetching (client) | TanStack Query, nuqs URL state                                                                                                                                                        |
+| Hosting                | Vercel + Vercel Cron (`vercel.json`)                                                                                                                                                  |
+| Package manager        | pnpm 11                                                                                                                                                                               |
 
 **Not used:** Prisma (ORM is Drizzle), Clerk/Supabase auth, Stripe/Lemon Squeezy billing, PostHog.
 
@@ -60,131 +72,8 @@ Trust code over docs when they disagree. Surface drift; update docs only when th
 
 ## Known documentation drift
 
-| Claim | Where | Code truth |
-|-------|-------|------------|
+| Claim                   | Where                 | Code truth                                                                            |
+| ----------------------- | --------------------- | ------------------------------------------------------------------------------------- |
 | GitHub OAuth "required" | README deploy section | Optional in dev (`auth.ts` skips provider if env missing); **required in production** |
 
 Old Drizzle snapshots (`drizzle/meta/0000_snapshot.json`, `0001`) still mention `lemonsqueezy_*` — historical migration artifacts only.
-
----
-
-## Source-of-truth map
-
-| Area | Code truth | Docs | Notes |
-|------|------------|------|-------|
-| Routes & pages | `src/app/**` | [features/overview.md](./features/overview.md) | App Router route groups |
-| Auth | `src/lib/auth.ts`, `src/app/api/auth/[...all]/route.ts` | [features/auth.md](./features/auth.md) | GitHub OAuth, Better Auth tables |
-| DB schema | `src/db/schema.ts`, `drizzle/` | [operations/database.md](./operations/database.md), [database-architecture.html](./database-architecture.html) | Migrations in `drizzle/` |
-| Architecture (HTML) | `docs/architecture/` | [architecture/index.html](./architecture/index.html) | System, security, API, ADRs |
-| Release ingestion | `src/lib/release-ingestion.ts`, `src/lib/github.ts` | [features/release-ingestion.md](./features/release-ingestion.md) | Cron + custom-repo trigger |
-| Agent skill updates | `src/lib/skill-*.ts`, `src/lib/public-skills.ts`, `src/app/skills/` | [features/agent-skill-updates.md](./features/agent-skill-updates.md) | Separate cron, migration 0010, manual seed |
-| AI summarisation | `src/lib/ai.ts` | [features/ai-summarization.md](./features/ai-summarization.md) | OpenRouter, Zod validation |
-| Release feed | `src/lib/release-feed.ts`, `src/components/dashboard/release-feed.tsx` | [features/release-feed.md](./features/release-feed.md) | Filters, virtualisation, advice UI |
-| Public stacks | `src/lib/public-stacks.ts`, `src/app/stacks/**` | [features/public-stacks.md](./features/public-stacks.md) | SEO pages, JSON-LD |
-| Server actions | `src/lib/actions.ts` | [features/server-actions.md](./features/server-actions.md) | Prefs, digest, read state, custom repos |
-| Env vars | `.env.example` | [operations/environment-variables.md](./operations/environment-variables.md) | Canonical list |
-| Deploy & cron | `vercel.json`, README | [operations/deployment.md](./operations/deployment.md) | Vercel Cron auth via `CRON_SECRET` |
-| Skill Updates staging | Guarded tests and diagnostic scripts | [operations/skill-staging-verification.md](./operations/skill-staging-verification.md) | Hosted checks require explicit approval; skill cron registration disabled |
-| Local dev | `package.json` scripts | [operations/local-development.md](./operations/local-development.md) | Focused cron suite: `pnpm test:cron` |
-| AI engineering workflow | `AGENTS.md`, `CLAUDE.md`, `.agents/skills/`, sync script | [operations/ai-workflow.md](./operations/ai-workflow.md), [operations/verification.md](./operations/verification.md) | Pinned local skills, conditional routing, integrity CI and risk-based checks |
-| Navigation + caching | `next.config.ts`, `src/app/**/loading.tsx`, cached data helpers | [operations/navigation-and-caching.md](./operations/navigation-and-caching.md) | Cache Components + Partial Prefetching |
-| Themes | `components/theme-provider.tsx`, `components/theme-switcher.tsx`, `app/globals.css` | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md#theme-behavior-and-compatible-components) | Dark default; localStorage preference; root `data-theme`; Tailwind inline aliases |
-| Digest | `src/lib/digest.ts`, `digestSubscribers` table, `subscribeToDigest` | [features/digest-signup.md](./features/digest-signup.md) | Capture + weekly Resend send + unsubscribe |
-| Design system + architecture | `globals.css`, `src/components/**` | [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) | Tokens, layout, copy voice, badges |
-
----
-
-## Doc status guide
-
-| Folder | Purpose | Status labels |
-|--------|---------|---------------|
-| `docs/features/` | How each system works today | `current` |
-| `docs/operations/` | Setup, deploy, env, DB, verification | `current` |
-| `docs/strategy/` | Roadmap / product direction | `planned` or `current` when added |
-| `docs/archive/` | Shipped plans, old audits, superseded docs | `historical`, `shipped`, `superseded` |
-
-When editing a doc, set status in the first lines. Move completed plans to `docs/archive/`.
-
----
-
-## Work rules for agents
-
-- Read this file + task doc before non-trivial changes.
-- For UI, pages, or styling: read [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) and match tokens, frames, typography, and badge tones.
-- Match existing patterns in neighboring files; minimal diff.
-- Update docs when changing routes, APIs, env vars, schema, auth, cron, or user-visible behavior.
-- Do not update docs for tiny refactors or obvious code-only changes.
-- Prefer pnpm; on Windows use **Command Prompt (`cmd.exe`)** for shell commands — see `AGENTS.md` → **Windows shell** and `.cursor/rules/windows-cmd-shell.mdc`.
-- Next.js 16 APIs may differ from training data — check `node_modules/next/dist/docs/` when unsure.
-- No commits unless the user asks.
-
----
-
-## Verification commands
-
-```bash
-node scripts/sync-agent-skills.mjs --check
-pnpm test:agent-workflow # Sync integrity regression tests; no services
-pnpm typecheck        # TypeScript 7
-pnpm typecheck:ts6    # TypeScript 6, for comparing during the TS 7 migration
-pnpm lint
-pnpm test:cron        # Mocked cron/GitHub recovery tests
-pnpm test:theme       # Theme initialization + light-palette contrast
-pnpm build
-git diff --check
-```
-
-Database (requires `.env` with `DATABASE_URL`):
-
-```bash
-pnpm db:push          # dev schema sync
-pnpm db:migrate       # apply migrations
-pnpm db:seed          # seed + sync the 90-stack registry
-pnpm db:studio        # Drizzle Studio
-```
-
-Manual cron (requires `CRON_SECRET`):
-
-```bash
-curl -H "Authorization: Bearer %CRON_SECRET%" "http://localhost:3000/api/cron/fetch-releases"
-```
-
-Backfill AI summaries for existing releases:
-
-```bash
-pnpm releases:backfill -- --limit=10
-```
-
-Focused cron tests use Node's built-in runner with mocked external services; Vitest/Jest are not configured.
-
----
-
-## Environment variables
-
-See [operations/environment-variables.md](./operations/environment-variables.md). Quick reference:
-
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `DATABASE_URL` | yes | Neon Postgres |
-| `BETTER_AUTH_SECRET` | prod | Session signing |
-| `BETTER_AUTH_URL` | prod | Auth origin |
-| `NEXT_PUBLIC_APP_URL` | prod | Public origin + AI referer |
-| `GITHUB_CLIENT_ID/SECRET` | prod | GitHub OAuth |
-| `OPENROUTER_API_KEY` | yes (for AI) | Release summarisation |
-| `CRON_SECRET` | yes (cron) | Protects `/api/cron/fetch-releases` |
-| `OPENROUTER_MODEL` | no | Default `deepseek/deepseek-chat` |
-| `GITHUB_TOKEN` | yes (release cron) | GitHub API PAT; required by protected health check too |
-| `BETTER_AUTH_API_KEY` | no | Better Auth Dash plugin |
-| `RESEND_API_KEY` | no | Weekly digest emails |
-| `DIGEST_FROM_EMAIL` | no | Verified Resend sender for digests |
-
----
-
-## Before ending a task
-
-- [ ] Changed behavior matches code paths you touched
-- [ ] `pnpm typecheck && pnpm lint` pass (or note why not run)
-- [ ] Docs updated if routes/APIs/env/schema/user-visible behavior changed
-- [ ] Doc status + paths correct; no broken relative links in edited docs
-- [ ] UI changes follow [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) (tokens, frames, copy voice)
-- [ ] Drift called out to user if docs/copy still disagree with code

@@ -1,7 +1,9 @@
-name: Agent workflow integrity
+name: CI
 
 on:
+  # PR branches run once via pull_request; main runs after merge.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -9,11 +11,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: agent-workflow-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   agent-workflow:
+    name: Agent workflow integrity (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -30,4 +33,85 @@ jobs:
           package-manager-cache: false
       # These checks need neither application dependencies nor credentials.
       - run: node scripts/sync-agent-skills.mjs --check
-      - run: node --test tests/agent-skills-sync.test.mjs
+      - run: node scripts/check-engineering-workflow.mjs
+      - run: node --test tests/agent-skills-sync.test.mjs tests/check-pr-review-signals.test.mjs tests/check-migration-history.test.mjs
+
+  migrations:
+    name: Migration history is append-only
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject edits to existing migrations, snapshots or journal entries
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-migration-history.mjs "$BASE_SHA" HEAD
+
+  review-signals:
+    name: Review signals
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Lists T2-area files in the job summary and fails on focused or newly skipped tests.
+      - name: Check T2 areas and test changes
+        id: signals
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-pr-review-signals.mjs "$BASE_SHA" HEAD
+      - name: Sync review labels
+        if: ${{ !cancelled() && steps.signals.outputs.t2 != '' && github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          T2: ${{ steps.signals.outputs.t2 }}
+          GUARD: ${{ steps.signals.outputs.guard }}
+        run: |
+          sync() { # label, wanted, description
+            if [ "$2" = "true" ]; then
+              gh label create "$1" --color B60205 --description "$3" --force
+              gh pr edit "$PR" --add-label "$1"
+            else
+              gh pr edit "$PR" --remove-label "$1" || true
+            fi
+          }
+          sync t2-area "$T2" "Touches a T2 area: read carefully"
+          sync guard-change "$GUARD" "Changes CI or a guard script: independent review"
+
+  app:
+    name: Lint, typecheck and offline tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      # No database, provider or app URL is configured: SQL/HTTP cases skip by their env gates.
+      # No build: Next.js prerendering would query a database.
+      - run: pnpm test
