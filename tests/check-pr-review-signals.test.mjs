@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   analyzeTestDiff,
+  checkTestSource,
   guardFiles,
   skipReason,
   t2Files,
@@ -11,6 +12,7 @@ import {
 const ONLY = 'test' + '.only',
   SKIP = 'test' + '.skip',
   SKIP_KEY = 'sk' + 'ip:',
+  TODO_KEY = 'to' + 'do:',
   ONLY_KEY = 'on' + 'ly:',
   ALLOW = '// allow-sk' + 'ip:',
   WEAK = 'assert' + '.ok(true)'
@@ -20,47 +22,43 @@ const SPEC = 'tests/release-votes.test.mjs'
 const clean = { errors: [], removedTests: [], assertionSignals: [], skipsAdded: [] }
 
 test('T2 paths are detected; others are not', () => {
-  assert.deepEqual(
-    t2Files([
-      'drizzle/0011_x.sql',
-      'drizzle/meta/_journal.json',
-      'src/db/schema.ts',
-      'src/lib/auth.ts',
-      'src/lib/skill-store.ts',
-      'src/app/api/cron/fetch-releases/route.ts',
-      'src/app/api/releases/[releaseId]/vote/route.ts',
-      'scripts/backfill-release-intelligence.ts',
-      'vercel.json',
-      'src/app/page.tsx',
-      'src/components/dashboard/release-feed.tsx',
-      'src/lib/public-stacks.ts',
-      'src/lib/skill-catalog.ts',
-      'src/app/api/mcp/[transport]/route.ts',
-      'docs/features/auth.md',
-    ]),
-    [
-      'drizzle/0011_x.sql',
-      'drizzle/meta/_journal.json',
-      'src/db/schema.ts',
-      'src/lib/auth.ts',
-      'src/lib/skill-store.ts',
-      'src/app/api/cron/fetch-releases/route.ts',
-      'src/app/api/releases/[releaseId]/vote/route.ts',
-      'scripts/backfill-release-intelligence.ts',
-      'vercel.json',
-    ],
-  )
+  const t2 = [
+    'drizzle/0011_x.sql',
+    'drizzle/meta/_journal.json',
+    'src/db/schema.ts',
+    'src/lib/auth.ts',
+    'src/lib/skill-store.ts',
+    'src/app/api/cron/fetch-releases/route.ts',
+    'src/app/api/releases/[releaseId]/vote/route.ts',
+    'src/app/digest/unsubscribe/page.tsx',
+    'scripts/backfill-release-intelligence.ts',
+    'scripts/evaluate-skill-updates.ts',
+    'vercel.json',
+  ]
+  const other = [
+    'src/app/api/releases/route.ts',
+    'src/app/page.tsx',
+    'src/components/dashboard/release-feed.tsx',
+    'src/lib/public-stacks.ts',
+    'src/lib/skill-catalog.ts',
+    'src/app/api/mcp/[transport]/route.ts',
+    'docs/features/auth.md',
+  ]
+  assert.deepEqual(t2Files([...t2, ...other]), t2)
 })
 
-test('CI, guard scripts and the test-database ownership guard are guard changes, not T2', () => {
+test('CI, guard and integrity scripts and the test-database ownership guard are guard changes, not T2', () => {
   const files = [
     '.github/workflows/ci.yml',
     'scripts/check-migration-history.mjs',
-    'tests/skill-test-database.mjs',
+    'scripts/check-pr-review-signals.mjs',
+    'scripts/check-engineering-workflow.mjs',
     'scripts/sync-agent-skills.mjs',
+    'tests/skill-test-database.mjs',
     'tests/release-votes-db.test.mjs',
+    'package.json',
   ]
-  assert.deepEqual(guardFiles(files), files.slice(0, 3))
+  assert.deepEqual(guardFiles(files), files.slice(0, 6))
   assert.deepEqual(t2Files(files), [])
 })
 
@@ -72,7 +70,12 @@ test('ordinary new tests pass', () => {
 })
 
 test('focused tests fail', () => {
-  for (const line of [`${ONLY}('x', () => {})`, `test('x', { ${ONLY_KEY} true }, () => {})`]) {
+  for (const line of [
+    `${ONLY}('x', () => {})`,
+    `test('x', { ${ONLY_KEY} true }, () => {})`,
+    "test['on" + "ly']('x', () => {})",
+    '  t.run' + 'Only(true)',
+  ]) {
     assert.match(analyzeTestDiff(diff(SPEC, `+${line}`)).errors.join(), /focused/, line)
   }
 })
@@ -98,15 +101,27 @@ test('a skip with an allow-skip comment passes but is listed for the human', () 
   )
 })
 
-test('unconditional or disguised skips fail', () => {
+test('unconditional, todo or disguised skips fail', () => {
   for (const lines of [
     [`+${SKIP}('x', () => {})`],
     [`+${SKIP}('x', () => {}) // process.env`],
     [`+test('x', { ${SKIP_KEY} true }, () => {})`],
     [`+test('x', { ${SKIP_KEY} 'later' }, () => {})`],
+    [`+test('x', { ${TODO_KEY} true }, () => {})`],
+    [`+test('x', { ${TODO_KEY} 'later' }, () => {})`],
     [`+  ${SKIP_KEY}`, "+    'not gated',"],
-    ['+  t' + '.skip()'],
-    ['+test' + ".todo('x')"],
+    [`+  { ${SKIP_KEY} !false && 'r' },`],
+    [`+  { ${SKIP_KEY} !0 && 'r' },`],
+    [`+  { ${SKIP_KEY} !enabled || 'r' },`],
+    [`+  { ${SKIP_KEY} 1 },`],
+    [`+  { ${SKIP_KEY} REASON },`],
+    [`+  { ${SKIP_KEY} (true) },`],
+    ["+test('x', { 'sk" + "ip': true }, () => {})"],
+    ["+test('x', { sk" + 'ip }, () => {})'],
+    ["+test['sk" + "ip']('x', () => {})"],
+    ['+  t' + '.sk' + 'ip()'],
+    ['+  context' + '.sk' + 'ip()'],
+    ['+test' + '.to' + "do('x')"],
     [`+${SKIP}('x', () => {}) ${ALLOW}`],
     [`+${SKIP}('x', () => {}) ${ALLOW}   `],
     [`+${SKIP}('allow-skip: this is a title, not a comment', () => {})`],
@@ -114,6 +129,38 @@ test('unconditional or disguised skips fail', () => {
     assert.equal(skipReason(lines.at(-1).slice(1)), null, lines.join())
     assert.match(analyzeTestDiff(diff(SPEC, ...lines)).errors.join(), /skipped/, lines.join())
   }
+})
+
+test('the whole-file check catches a skip made unconditional by deleting its gate line', () => {
+  const gated = [
+    "test('x', {",
+    `  ${SKIP_KEY}`,
+    '    !process.env.SKILL_TEST_DATABASE_URL &&',
+    "    'Requires an owned cluster',",
+    '}, fn)',
+  ]
+  assert.deepEqual(checkTestSource(SPEC, gated.join('\n')), [])
+  // A `--unified=0` diff of this change contains only the removed gate line, which adds nothing.
+  assert.deepEqual(analyzeTestDiff(diff(SPEC, `-${gated[2]}`)).errors, [])
+  const ungated = gated.filter((_, i) => i !== 2).join('\n')
+  assert.match(checkTestSource(SPEC, ungated).join(), /skipped/)
+  assert.deepEqual(checkTestSource('tests/fixtures/x.json', `{ "${SKIP_KEY} true }`), [])
+  assert.deepEqual(checkTestSource('src/lib/x.ts', `${SKIP}('x')`), [])
+})
+
+test('a deleted test file lists its removed tests and assertions', () => {
+  const file = 'tests/release-votes-db.test.mjs'
+  const r = analyzeTestDiff(
+    [
+      `--- a/${file}`,
+      '+++ /dev/null',
+      '@@ -1,2 +0,0 @@',
+      "-test('rejects cross-origin votes', () => {",
+      '-  assert.equal(status, 403)',
+    ].join('\n'),
+  )
+  assert.deepEqual(r.removedTests, [{ file, title: 'rejects cross-origin votes' }])
+  assert.match(r.assertionSignals.join(), /1 assertion\(s\) removed net/)
 })
 
 test('net assertion removal and weak assertions are surfaced, not blocking', () => {

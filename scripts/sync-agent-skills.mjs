@@ -57,7 +57,7 @@ for (const skill of manifest.skills) {
   const target = join(root, '.claude/skills', skill.name)
   const files = Object.keys(skill.files).sort()
   assert(
-    files.includes('SKILL.md') && files.some((file) => /^LICENSE(.txt)?$/.test(file)),
+    files.includes('SKILL.md') && files.some((file) => /^LICENSE(\.txt)?$/.test(file)),
     `Incomplete skill: ${skill.name}`,
   )
   for (const file of files) {

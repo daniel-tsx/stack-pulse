@@ -120,6 +120,23 @@ test('unrecorded source resources and missing licenses fail integrity', (t) => {
   assert.equal(existsSync(join(f.directory, '.claude')), false)
 })
 
+test('a manifest entry without LICENSE or LICENSE.txt is incomplete', (t) => {
+  const f = fixture(t)
+  const skill = f.manifest.skills.find((s) => s.name === 'ponytail')
+  const license = skill.files.LICENSE
+  delete skill.files.LICENSE
+  for (const name of ['LICENSE-txt', 'LICENSExtxt']) {
+    skill.files[name] = license
+    f.write(`.agents/skills/ponytail/${name}`, f.read('.agents/skills/ponytail/LICENSE'))
+  }
+  rmSync(join(f.directory, '.agents/skills/ponytail/LICENSE'))
+  f.saveManifest()
+  const result = f.run()
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /Incomplete skill: ponytail/)
+  assert.equal(existsSync(join(f.directory, '.claude')), false)
+})
+
 test('unexpected managed target files are preserved and never silently removed', (t) => {
   const f = fixture(t)
   assert.equal(f.run().status, 0)

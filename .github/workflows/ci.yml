@@ -113,5 +113,6 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       # No database, provider or app URL is configured: SQL/HTTP cases skip by their env gates.
-      # No build: Next.js prerendering would query a database.
-      - run: pnpm test
+      # No build: Next.js prerendering would query a database. The test glob lives here, not in
+      # package.json, so narrowing what CI runs is always a workflow (guard) change.
+      - run: node --test tests/*.test.mjs
