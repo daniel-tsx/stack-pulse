@@ -11,6 +11,8 @@ import {
 const ONLY = 'test' + '.only',
   SKIP = 'test' + '.skip',
   SKIP_KEY = 'sk' + 'ip:',
+  ONLY_KEY = 'on' + 'ly:',
+  ALLOW = '// allow-sk' + 'ip:',
   WEAK = 'assert' + '.ok(true)'
 const diff = (file, ...lines) =>
   [`--- a/${file}`, `+++ b/${file}`, '@@ -1 +1 @@', ...lines].join('\n')
@@ -70,7 +72,7 @@ test('ordinary new tests pass', () => {
 })
 
 test('focused tests fail', () => {
-  for (const line of [`${ONLY}('x', () => {})`, "test('x', { only: true }, () => {})"]) {
+  for (const line of [`${ONLY}('x', () => {})`, `test('x', { ${ONLY_KEY} true }, () => {})`]) {
     assert.match(analyzeTestDiff(diff(SPEC, `+${line}`)).errors.join(), /focused/, line)
   }
 })
@@ -88,7 +90,7 @@ test('env-gated skips pass silently, on one line or split across lines', () => {
 })
 
 test('a skip with an allow-skip comment passes but is listed for the human', () => {
-  const r = analyzeTestDiff(diff(SPEC, `+${SKIP}('x', () => {}) // allow-skip: GitHub API outage`))
+  const r = analyzeTestDiff(diff(SPEC, `+${SKIP}('x', () => {}) ${ALLOW} GitHub API outage`))
   assert.deepEqual(r.errors, [])
   assert.deepEqual(
     r.skipsAdded.map((s) => s.reason),
@@ -105,8 +107,8 @@ test('unconditional or disguised skips fail', () => {
     [`+  ${SKIP_KEY}`, "+    'not gated',"],
     ['+  t' + '.skip()'],
     ['+test' + ".todo('x')"],
-    [`+${SKIP}('x', () => {}) // allow-skip:`],
-    [`+${SKIP}('x', () => {}) // allow-skip:   `],
+    [`+${SKIP}('x', () => {}) ${ALLOW}`],
+    [`+${SKIP}('x', () => {}) ${ALLOW}   `],
     [`+${SKIP}('allow-skip: this is a title, not a comment', () => {})`],
   ]) {
     assert.equal(skipReason(lines.at(-1).slice(1)), null, lines.join())
