@@ -186,10 +186,12 @@ function evidence(dir, supplied) {
   )
   return { path: relative(repo, full).split(sep).join('/'), sha256: sha(readFileSync(full)) }
 }
-function artifactProblems(state, dir, allowPlanInProgress = false) {
+// Evidence a stage rewrites before re-recording it with the helper; reviewer reports are never refreshable.
+const REFRESHABLE = { CORRECT_DESIGN: 'plan', CORRECT: 'verification', VERIFY: 'verification' }
+function artifactProblems(state, dir, refreshableKind = null) {
   const issues = []
   for (const a of state.artifacts) {
-    if (allowPlanInProgress && a.kind === 'plan') continue
+    if (a.kind === refreshableKind) continue
     try {
       const now = evidence(dir, a.path)
       if (now.sha256 !== a.sha256) issues.push(`Modified: ${a.path}`)
@@ -203,7 +205,7 @@ function currentAssessment(state, dir) {
   const now = sourceFingerprint()
   const writing = WRITE_STAGES.has(state.stage)
   const changed = now.sha256 !== state.revision.sha256
-  const mismatched = artifactProblems(state, dir, state.stage === 'CORRECT_DESIGN')
+  const mismatched = artifactProblems(state, dir, REFRESHABLE[state.stage])
   const result = mismatched.length
     ? 'BLOCKED_EVIDENCE_CHANGED'
     : changed && !writing

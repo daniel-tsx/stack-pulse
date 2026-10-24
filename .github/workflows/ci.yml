@@ -34,7 +34,7 @@ jobs:
       # These checks need neither application dependencies nor credentials.
       - run: node scripts/sync-agent-skills.mjs --check
       - run: node scripts/check-engineering-workflow.mjs
-      - run: node --test tests/agent-skills-sync.test.mjs tests/check-pr-review-signals.test.mjs tests/check-migration-history.test.mjs
+      - run: node --test tests/agent-skills-sync.test.mjs tests/check-pr-review-signals.test.mjs tests/check-migration-history.test.mjs tests/engineering-workflow-state.test.mjs
 
   migrations:
     name: Migration history is append-only

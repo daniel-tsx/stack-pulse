@@ -10,6 +10,8 @@ export const T2_PATHS = [
   /^drizzle\//,
   /^src\/db\/(schema|index|seed)\.ts$/,
   /^src\/app\/api\/(auth|cron|digest|release-advice|webhooks)\//,
+  // Sign-in/sign-up pages pass the user-controlled return path into OAuth.
+  /^src\/app\/\(auth\)\//,
   /^src\/app\/api\/releases\/[^/]+\/vote\//,
   /^src\/app\/digest\/unsubscribe\//,
   // Auth, ownership, cron auth, ingestion/lease recovery, AI spend and outbound notifications.
@@ -36,28 +38,54 @@ const FOCUS =
 // test['skip'], and the { skip } / { todo } options unless their value is the env gate below.
 const SKIP_CALL =
   /\b(?:it|test|describe|suite)\.(?:skip|todo)\b|\.\s*(?:skip|todo)\s*\(|\[\s*['"](?:skip|todo)['"]\s*\]/
-const SKIP_KEY = /(?<![\w-])['"]?(?:skip|todo)['"]?\s*:\s*(.*)$/
+const SKIP_KEYS = /(?<![\w-])['"]?(?:skip|todo)['"]?\s*:/g
+const ONLY_KEY_AT_END = /(?<![\w-])['"]?only['"]?\s*:\s*$/
 const SKIP_SHORTHAND = /[{,]\s*(?:skip|todo)\s*[,}]/
-// The repository's env gate: `skip: !<env var or identifier> && '<reason>'`; the value may start on the next line.
-const ENV_GATE =
-  /^\s*!\s*(?!(?:true|false|null|undefined|NaN)\b)(?:process\.env\.[A-Za-z0-9_]+|[A-Za-z_$][\w$]*)\s*&&/
+// The repository's env gate, complete: `!<env var or identifier> && '<reason>'`, followed only by `,`, `}`,
+// a comment or the end of the line. Its value may continue over the next one or two lines.
+const GATE_HEAD = String.raw`!\s*(?!(?:true|false|null|undefined|NaN)\b)(?:process\.env\.[A-Za-z0-9_]+|[A-Za-z_$][\w$]*)\s*&&`
+const REASON_TAIL = String.raw`(['"\`])(?:(?!\1).)*\1\s*(?:[,}].*|\/\/.*)?$`
+const GATE = new RegExp(`^\\s*${GATE_HEAD}\\s*${REASON_TAIL}`)
+const GATE_HEAD_ONLY = new RegExp(`^\\s*${GATE_HEAD}\\s*$`)
+const GATE_REASON = new RegExp(`^\\s*${REASON_TAIL}`)
 // A trailing `// allow-skip: <reason>` comment also allows a skip; added ones are listed for the human reviewer.
 const ALLOW_SKIP = /\/\/\s*allow-skip:\s*(\S.*)$/
 export const skipReason = (line) => line.match(ALLOW_SKIP)?.[1].trim() ?? null
 
 /** Classifies consecutive lines of one test file: returns 'focus', 'skip' or null for each line. */
 function testLineScanner() {
-  let pendingKey = false
+  // pending: what the next line must continue — a gate 'value', a gate 'reason', or an 'only' value.
+  let pending = null
+  // Returns the pending state after a skip/todo value, or 'skip' when the value is not the env gate.
+  const value = (text) =>
+    text.trim() === ''
+      ? 'value'
+      : GATE.test(text)
+        ? null
+        : GATE_HEAD_ONLY.test(text)
+          ? 'reason'
+          : 'skip'
   return {
-    reset: () => (pendingKey = false),
+    reset: () => (pending = null),
     scan(body) {
-      const ungatedValue = pendingKey && !ENV_GATE.test(body)
-      const key = body.match(SKIP_KEY)
-      pendingKey = Boolean(key) && key[1].trim() === ''
+      let ungated = false
+      const before = pending
+      pending = null
+      if (before === 'only' && /^\s*true\b/.test(body)) return 'focus'
+      if (before === 'value') {
+        const next = value(body)
+        if (next === 'skip') ungated = true
+        else pending = next
+      } else if (before === 'reason' && !GATE_REASON.test(body)) ungated = true
       if (FOCUS.test(body)) return 'focus'
-      const ungatedKey = key && key[1].trim() !== '' && !ENV_GATE.test(key[1])
-      if (ungatedValue || ungatedKey || SKIP_CALL.test(body) || SKIP_SHORTHAND.test(body))
-        return 'skip'
+      if (ONLY_KEY_AT_END.test(body)) pending = 'only'
+      // Every skip/todo option on the line is checked; its value runs to the end of the line.
+      for (const key of body.matchAll(SKIP_KEYS)) {
+        const next = value(body.slice(key.index + key[0].length))
+        if (next === 'skip') ungated = true
+        else if (next) pending = next
+      }
+      if (ungated || SKIP_CALL.test(body) || SKIP_SHORTHAND.test(body)) return 'skip'
       return null
     },
   }
@@ -66,17 +94,25 @@ function testLineScanner() {
 const skipError = (file, body) =>
   `${file}: skipped or todo test without the "skip: !<condition> && '<reason>'" env gate or a "// allow-skip: <reason>" comment: ${body.trim()}`
 
-/** Whole-file check of a changed test file, so removing a gate line cannot leave an unconditional skip. */
+/**
+ * Whole-file check of a changed test file, so removing a gate line cannot leave an unconditional skip.
+ * Returns blocking errors and the allow-skip lines, which the caller compares with the base version.
+ */
 export function checkTestSource(file, text) {
-  if (!TEST_FILE.test(file) || !CODE_FILE.test(file)) return []
+  const errors = [],
+    allowed = []
+  if (!TEST_FILE.test(file) || !CODE_FILE.test(file)) return { errors, allowed }
   const scanner = testLineScanner()
-  const errors = []
   for (const body of text.split('\n')) {
     const kind = scanner.scan(body)
     if (kind === 'focus') errors.push(`${file}: focused test: ${body.trim()}`)
-    else if (kind === 'skip' && !skipReason(body)) errors.push(skipError(file, body))
+    else if (kind === 'skip') {
+      const reason = skipReason(body)
+      if (reason) allowed.push({ file, reason, line: body.trim() })
+      else errors.push(skipError(file, body))
+    }
   }
-  return errors
+  return { errors, allowed }
 }
 const ASSERTION = /\bexpect\(|\bassert(?:\.\w+)?\(/g
 // Assertions that cannot fail.
@@ -174,22 +210,32 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     assertionSignals,
     skipsAdded,
   } = analyzeTestDiff(git('diff', '--unified=0', '--no-color', base, head))
-  const show = (file) => {
+  const show = (ref, file) => {
     try {
-      return git('show', `${head}:${file}`)
+      return execFileSync('git', ['show', `${ref}:${file}`], {
+        encoding: 'utf8',
+        maxBuffer: 256 << 20,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
     } catch {
-      return null // deleted at head
+      return null // absent at that ref
     }
   }
-  const errors = [
-    ...new Set([
-      ...diffErrors,
-      ...files.flatMap((file) => {
-        const text = TEST_FILE.test(file) && CODE_FILE.test(file) ? show(file) : null
-        return text === null ? [] : checkTestSource(file, text)
-      }),
-    ]),
-  ]
+  const fileErrors = []
+  for (const file of files.filter((f) => TEST_FILE.test(f) && CODE_FILE.test(f))) {
+    const text = show(head, file)
+    if (text === null) continue
+    const now = checkTestSource(file, text)
+    fileErrors.push(...now.errors)
+    // An allowed skip whose key line is unchanged never appears as an added line: list it from the file.
+    const before = checkTestSource(file, show(base, file) ?? '').allowed.map((s) => s.line)
+    for (const s of now.allowed) {
+      const i = before.indexOf(s.line)
+      if (i >= 0) before.splice(i, 1)
+      else if (!skipsAdded.some((a) => a.file === s.file && a.line === s.line)) skipsAdded.push(s)
+    }
+  }
+  const errors = [...new Set([...diffErrors, ...fileErrors])]
   const lines = ['## Review signals', '']
   lines.push(
     t2.length
