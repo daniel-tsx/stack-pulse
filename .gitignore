@@ -22,6 +22,9 @@
 
 # misc
 .DS_Store
+# agent task scratch space and host-created worktrees
+/.tmp/
+/.claude/worktrees/
 *.pem
 
 # debug

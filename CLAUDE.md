@@ -4,7 +4,7 @@
 
 @AGENTS.md
 
-Shared rules and skill routing live in `AGENTS.md`. Read [docs/AGENT_START_HERE.md](docs/AGENT_START_HERE.md) and the task's owning docs before non-trivial work. Use the repository-local `.claude/skills/` copies for the seven standard skills.
+Classify the task from the Task size table in AGENTS.md. For T1/T2 tasks, the reading matrix in [docs/AGENT_START_HERE.md](docs/AGENT_START_HERE.md) then decides what to read; it does not decide the size. The shared guide owns project invariants, safety rules, skill routing and verification commands; [docs/operations/verification.md](docs/operations/verification.md) owns setup and detailed procedures. Use the repository-local `.claude/skills/` copies.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

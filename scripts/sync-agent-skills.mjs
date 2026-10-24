@@ -45,14 +45,6 @@ async function filesAt(directory, optional = false) {
   return files.sort()
 }
 
-// Only the Codex entry point replaces Claude's Skill-tool invocation.
-function claudeCopy(name, file, source) {
-  if (name !== 'grill-me' || file !== 'SKILL.md') return source
-  const codexCall = 'Read [../grilling/SKILL.md](../grilling/SKILL.md) and follow it.'
-  assert(source.includes(codexCall), 'Missing Grill Me adapter')
-  return source.replace(codexCall, 'Call the Skill tool with "grilling".')
-}
-
 for (const directory of ['.agents', '.agents/skills', '.claude', '.claude/skills']) {
   await realDirectory(join(root, directory), directory.startsWith('.claude'))
 }
@@ -64,7 +56,10 @@ for (const skill of manifest.skills) {
   const source = join(root, '.agents/skills', skill.name)
   const target = join(root, '.claude/skills', skill.name)
   const files = Object.keys(skill.files).sort()
-  assert(files.includes('SKILL.md') && files.includes('LICENSE'), `Incomplete skill: ${skill.name}`)
+  assert(
+    files.includes('SKILL.md') && files.some((file) => /^LICENSE(\.txt)?$/.test(file)),
+    `Incomplete skill: ${skill.name}`,
+  )
   for (const file of files) {
     assert(
       file.split('/').every((part) => /^[\w.-]+$/.test(part) && part !== '.' && part !== '..'),
@@ -86,7 +81,7 @@ for (const skill of manifest.skills) {
       skill.files[file],
       `Source changed; review provenance and update its hash: ${skill.name}/${file}`,
     )
-    copies.push([join(target, file), claudeCopy(skill.name, file, data)])
+    copies.push([join(target, file), data])
   }
 }
 for (const [destination, data] of copies) {

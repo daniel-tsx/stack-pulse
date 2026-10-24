@@ -20,7 +20,9 @@ function fixture(t, crlf = false) {
   const directory = mkdtempSync(join(tmpdir(), 'stackpulse-agent-sync-'))
   t.after(() => rmSync(directory, { recursive: true, force: true }))
   const manifest = JSON.parse(readFileSync(join(root, '.agents/skill-sources.json'), 'utf8'))
-  manifest.skills = manifest.skills.filter((skill) => ['ponytail', 'grill-me'].includes(skill.name))
+  manifest.skills = manifest.skills.filter((skill) =>
+    ['ponytail', 'grilling', 'frontend-design'].includes(skill.name),
+  )
   for (const skill of manifest.skills) {
     const source = join(root, '.agents/skills', skill.name)
     const target = join(directory, '.agents/skills', skill.name)
@@ -67,7 +69,7 @@ function fixture(t, crlf = false) {
   }
 }
 
-test('initial sync from a CRLF checkout creates full copies, adapts Grill Me and is repeatable', (t) => {
+test('initial sync from a CRLF checkout creates identical full copies and is repeatable', (t) => {
   const f = fixture(t, true)
   assert.equal(f.run('--check').status, 1)
   assert.equal(existsSync(join(f.directory, '.claude')), false, '--check must not create files')
@@ -77,15 +79,7 @@ test('initial sync from a CRLF checkout creates full copies, adapts Grill Me and
     for (const file of Object.keys(skill.files)) {
       const source = f.read(`.agents/skills/${skill.name}/${file}`).replaceAll('\r\n', '\n')
       const target = f.read(`.claude/skills/${skill.name}/${file}`)
-      assert.equal(
-        target,
-        skill.name === 'grill-me' && file === 'SKILL.md'
-          ? source.replace(
-              'Read [../grilling/SKILL.md](../grilling/SKILL.md) and follow it.',
-              'Call the Skill tool with "grilling".',
-            )
-          : source,
-      )
+      assert.equal(target, source)
     }
   }
   assert.equal(f.run().status, 0)
@@ -98,7 +92,7 @@ test('check reports drift without changing it; sync repairs drift and missing fi
   f.write('.claude/skills/ponytail/SKILL.md', 'drift')
   assert.equal(f.run('--check').status, 1)
   assert.equal(f.read('.claude/skills/ponytail/SKILL.md'), 'drift')
-  rmSync(join(f.directory, '.claude/skills/grill-me/agents/openai.yaml'))
+  rmSync(join(f.directory, '.claude/skills/grilling/agents/openai.yaml'))
   assert.equal(f.run().status, 0)
   assert.equal(f.run('--check').status, 0)
 })
@@ -107,7 +101,7 @@ test('a changed source in a later package prevents ALL target writes', (t) => {
   const f = fixture(t)
   assert.equal(f.run().status, 0)
   f.write('.claude/skills/ponytail/SKILL.md', 'keep until all sources validate')
-  f.write('.agents/skills/grill-me/agents/openai.yaml', 'unreviewed edit')
+  f.write('.agents/skills/grilling/agents/openai.yaml', 'unreviewed edit')
   for (const args of [[], ['--check']]) {
     const result = f.run(...args)
     assert.equal(result.status, 1)
@@ -126,14 +120,31 @@ test('unrecorded source resources and missing licenses fail integrity', (t) => {
   assert.equal(existsSync(join(f.directory, '.claude')), false)
 })
 
+test('a manifest entry without LICENSE or LICENSE.txt is incomplete', (t) => {
+  const f = fixture(t)
+  const skill = f.manifest.skills.find((s) => s.name === 'ponytail')
+  const license = skill.files.LICENSE
+  delete skill.files.LICENSE
+  for (const name of ['LICENSE-txt', 'LICENSExtxt']) {
+    skill.files[name] = license
+    f.write(`.agents/skills/ponytail/${name}`, f.read('.agents/skills/ponytail/LICENSE'))
+  }
+  rmSync(join(f.directory, '.agents/skills/ponytail/LICENSE'))
+  f.saveManifest()
+  const result = f.run()
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /Incomplete skill: ponytail/)
+  assert.equal(existsSync(join(f.directory, '.claude')), false)
+})
+
 test('unexpected managed target files are preserved and never silently removed', (t) => {
   const f = fixture(t)
   assert.equal(f.run().status, 0)
-  f.write('.claude/skills/grill-me/custom.md', 'preserve me')
+  f.write('.claude/skills/grilling/custom.md', 'preserve me')
   const result = f.run()
   assert.equal(result.status, 1)
   assert.match(result.stderr, /Unexpected Claude files/)
-  assert.equal(f.read('.claude/skills/grill-me/custom.md'), 'preserve me')
+  assert.equal(f.read('.claude/skills/grilling/custom.md'), 'preserve me')
 })
 
 test('unmanaged custom skills and existing Claude settings are untouched', (t) => {

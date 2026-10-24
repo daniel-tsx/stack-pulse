@@ -6,14 +6,14 @@
 
 Select checks for the actual changed boundary. [AGENTS.md](../../AGENTS.md) owns routing and completion rules; [AI workflow](ai-workflow.md) owns skill integrity/discovery and read-only pilot prompts.
 
-| Change | Required evidence |
-| --- | --- |
-| Documentation or trivial styling | Edited links/statuses, whitespace and relevant static/visual checks; no Docker requirement. |
-| Agent workflow tooling | `node scripts/sync-agent-skills.mjs --check`, `pnpm test:agent-workflow`, YAML/frontmatter checks after skill edits, and applicable lint/type checks. Discovery and behavioral activation are separate. |
-| Pure application logic | Focused unit tests plus applicable typecheck/lint/build checks; containers only when a real affected boundary needs them. |
-| Migrations, SQL constraints/indexes, transactions, persistence, locks or concurrency | Relevant application integration/migration tests against real disposable PostgreSQL. Existing ownership-verified native PostgreSQL is suitable; Docker is an option, not a requirement to replace it. Mocks cannot prove SQL semantics. |
-| New service boundaries | Real isolated application-level integration across those boundaries; introduce infrastructure only when existing behavior justifies it. StackPulse currently has no Redis/broker/worker stack. |
-| Neon HTTP, auth, live AI or notifications | Separate provider-specific evidence in an explicitly approved isolated environment; local SQL does not verify hosted transport, OAuth, billing or delivery. |
+| Change                                                                               | Required evidence                                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Documentation or trivial styling                                                     | Edited links/statuses, whitespace and relevant static/visual checks; no Docker requirement.                                                                                                                                                            |
+| Agent workflow tooling                                                               | `node scripts/sync-agent-skills.mjs --check`, `node scripts/check-engineering-workflow.mjs`, `pnpm test:agent-workflow`, YAML/frontmatter checks after skill edits, and applicable lint/type checks. Discovery and behavioral activation are separate. |
+| Pure application logic                                                               | Focused unit tests plus applicable typecheck/lint checks; `pnpm build` only against a verified isolated database; containers only when a real affected boundary needs them.                                                                            |
+| Migrations, SQL constraints/indexes, transactions, persistence, locks or concurrency | Relevant application integration/migration tests against real disposable PostgreSQL. Existing ownership-verified native PostgreSQL is suitable; Docker is an option, not a requirement to replace it. Mocks cannot prove SQL semantics.                |
+| New service boundaries                                                               | Real isolated application-level integration across those boundaries; introduce infrastructure only when existing behavior justifies it. StackPulse currently has no Redis/broker/worker stack.                                                         |
+| Neon HTTP, auth, live AI or notifications                                            | Separate provider-specific evidence in an explicitly approved isolated environment; local SQL does not verify hosted transport, OAuth, billing or delivery.                                                                                            |
 
 Always report exact command, scope, **PASS / FAIL / NOT RUN**, executed/passed/failed/skipped counts when available, environment limits, cleanup and remaining unverified boundaries. Zero executed tests or unexpected skips do not establish an integration PASS. A green process with intentionally skipped SQL/HTTP cases is only evidence for the cases executed. Do not replace missing integration evidence with mock results or a healthy service/container.
 
@@ -26,7 +26,7 @@ If Docker or another required isolated environment cannot run, do not bypass res
 - `pnpm test:skills` mixes offline cases with SQL, local SDK/HTTP and migration-rehearsal cases guarded by both `SKILL_TEST_DATABASE_URL` and `SKILL_TEST_TARGET_FILE`. These verify workspace-owned data directory/PID/system identity before writes. Follow the [staging runbook](skill-staging-verification.md), not an unverified copied ownership proof.
 - Production uses `@neondatabase/serverless` over HTTP with Drizzle neon-http. Vote/skill SQL tests use a local TCP-backed test client. Skill HTTP tests additionally exercise the actual SDK via a loopback HTTP bridge; this still does not prove hosted Neon behavior. Cloud-connected tests require explicit approval and dedicated disposable targets.
 
-There is no checked-in Compose stack or Docker integration runner. Do not invent `pnpm test:integration:docker` or treat these suites' default skips as Docker coverage. Containerizing the skill tests requires a reviewed ownership-proof design; do not weaken their native-cluster guard to make a container fit. Reuse existing application tests if a future task justifies a small runner, and test its isolation/failure/cleanup paths before enabling it. CI currently checks only agent workflow integrity; it provisions no database services.
+There is no checked-in Compose stack or Docker integration runner. Do not invent `pnpm test:integration:docker` or treat these suites' default skips as Docker coverage. Containerizing the skill tests requires a reviewed ownership-proof design; do not weaken their native-cluster guard to make a container fit. Reuse existing application tests if a future task justifies a small runner, and test its isolation/failure/cleanup paths before enabling it. CI ([`ci.yml`](../../.github/workflows/ci.yml)) runs agent-workflow integrity, the migration-history and review-signal guards on PRs, and `pnpm lint`, `pnpm typecheck` and `node --test tests/*.test.mjs` (the same files as `pnpm test`) with no database, provider or app URL configured, so SQL/HTTP cases skip. It provisions no database services and runs no build.
 
 ### Safe Docker execution
 
@@ -44,7 +44,9 @@ No Docker stack is required for this workflow migration, and no containers are s
 
 ```bash
 node scripts/sync-agent-skills.mjs --check
-pnpm test:agent-workflow # Dependency-free sync regression tests; no app/service calls
+node scripts/check-engineering-workflow.mjs
+pnpm test:agent-workflow # Dependency-free sync and guard regression tests; no app/service calls
+pnpm test             # Every tests/*.test.mjs file; SQL/HTTP cases skip without their explicit targets
 pnpm typecheck        # TypeScript 7 (`tsc`)
 pnpm typecheck:ts6    # TypeScript 6 (`tsc6`) — same tsconfig, for migration comparison
 pnpm lint
@@ -108,7 +110,7 @@ git diff --check
 
 ## Link checks after doc moves
 
-Search active docs for broken relative paths; ensure `docs/AGENT_START_HERE.md` map matches new files. UI work should match `docs/DESIGN_SYSTEM.md`.
+Search active docs for broken relative paths; ensure the `docs/AGENT_START_HERE.md` reading matrix matches new files. UI work should match `docs/DESIGN_SYSTEM.md`.
 
 ## Provider drift audit
 
