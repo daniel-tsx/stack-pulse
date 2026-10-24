@@ -7,9 +7,16 @@ import {
 } from '@/lib/ai-resilience'
 
 type OpenRouterChatParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & {
-  // OpenRouter-only routing object the OpenAI SDK does not model. require_parameters
-  // ensures the request only routes to providers that honor response_format.
+  // OpenRouter extensions; require_parameters filters on every supplied parameter.
   provider?: { require_parameters?: boolean }
+  reasoning?: { effort: OpenAI.Chat.Completions.ChatCompletionReasoningEffort }
+}
+
+function getModelRequestParameters(
+  model: string,
+  temperature: number,
+): Pick<OpenRouterChatParams, 'temperature' | 'reasoning'> {
+  return model === 'openai/gpt-6-luna' ? { reasoning: { effort: 'none' } } : { temperature }
 }
 
 let openai: OpenAI | null = null
@@ -198,42 +205,40 @@ export async function summarizeRelease(
   return execution.run(
     async (options) => {
       const body = input.body?.trim()
-      const { data: response, response: httpResponse } = await getOpenAI()
-        .chat.completions.create(
+      const params: OpenRouterChatParams = {
+        model,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
           {
-            model,
-            messages: [
-              { role: 'system', content: SYSTEM_PROMPT },
-              {
-                role: 'user',
-                content: [
-                  `Repository: ${input.repoName}`,
-                  `Version/tag: ${input.version}`,
-                  `Release title: ${input.title || input.version}`,
-                  `Prerelease: ${input.prerelease ? 'yes' : 'no'}`,
-                  `Source URL: ${input.url}`,
-                  '',
-                  'Release markdown:',
-                  '<release_notes>',
-                  body ? body.slice(0, 8000) : '(No release notes were provided.)',
-                  '</release_notes>',
-                ].join('\n'),
-              },
-            ],
-            temperature: 0,
-            max_tokens: 2000,
-            response_format: {
-              type: 'json_schema',
-              json_schema: {
-                name: 'release_summary',
-                strict: true,
-                schema: releaseSummaryJsonSchema,
-              },
-            },
-            provider: { require_parameters: true },
-          } as OpenRouterChatParams,
-          options,
-        )
+            role: 'user',
+            content: [
+              `Repository: ${input.repoName}`,
+              `Version/tag: ${input.version}`,
+              `Release title: ${input.title || input.version}`,
+              `Prerelease: ${input.prerelease ? 'yes' : 'no'}`,
+              `Source URL: ${input.url}`,
+              '',
+              'Release markdown:',
+              '<release_notes>',
+              body ? body.slice(0, 8000) : '(No release notes were provided.)',
+              '</release_notes>',
+            ].join('\n'),
+          },
+        ],
+        ...getModelRequestParameters(model, 0),
+        max_tokens: 2000,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'release_summary',
+            strict: true,
+            schema: releaseSummaryJsonSchema,
+          },
+        },
+        provider: { require_parameters: true },
+      }
+      const { data: response, response: httpResponse } = await getOpenAI()
+        .chat.completions.create(params, options)
         .withResponse()
 
       // OpenRouter can return an error envelope after accepting a request with HTTP 200.
@@ -274,7 +279,7 @@ export async function summarizeRelease(
 
 export async function adviseOnRelease(input: AdviseOnReleaseInput): Promise<ReleaseAdvice> {
   const model = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-chat'
-  const response = await getOpenAI().chat.completions.create({
+  const params: OpenRouterChatParams = {
     model,
     messages: [
       {
@@ -329,14 +334,15 @@ Rules:
         ].join('\n'),
       },
     ],
-    temperature: 0.2,
+    ...getModelRequestParameters(model, 0.2),
     max_tokens: 2000,
     response_format: {
       type: 'json_schema',
       json_schema: { name: 'release_advice', strict: true, schema: releaseAdviceJsonSchema },
     },
     provider: { require_parameters: true },
-  } as OpenRouterChatParams)
+  }
+  const response = await getOpenAI().chat.completions.create(params)
 
   const content = response.choices[0]?.message?.content
   if (!content) throw new Error('No response from AI')

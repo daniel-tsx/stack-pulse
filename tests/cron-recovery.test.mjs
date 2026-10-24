@@ -1350,6 +1350,123 @@ function aiHarness(options = {}) {
   }
 }
 
+const adviceInput = {
+  techName: 'SyntheticParser',
+  version: 'v1',
+  title: 'release',
+  summary: 'summary',
+  newFeatures: [],
+  breakingChanges: [],
+  securityNotes: [],
+  deprecations: [],
+  migrationSteps: [],
+  impactSummary: null,
+  recommendedAction: null,
+  releaseSignals: [],
+  rawReleaseBody: 'release notes',
+  rawReleaseUrl: 'https://example.test/release',
+  question: 'What should we test?',
+  coverageNote: 'Only the target release is covered.',
+  relatedReleases: [],
+}
+
+for (const [label, configuredModel] of [
+  ['exact Luna', 'openai/gpt-6-luna'],
+  ['explicit DeepSeek', 'deepseek/deepseek-chat'],
+  ['default DeepSeek', undefined],
+  ['other Luna model', 'openai/gpt-6-luna-pro'],
+]) {
+  test(`Luna compatibility: ${label} summary and advice retain SDK wire contracts`, async () => {
+    const h = aiHarness({
+      env: { OPENROUTER_MODEL: configuredModel },
+      aiFetch: (config) =>
+        JSON.parse(config.body).response_format.json_schema.name === 'release_summary'
+          ? aiSuccess()
+          : aiSuccess(
+              JSON.stringify({
+                risk_level: 'low',
+                answer: 'Test the parser.',
+                project_impact: '  Parser impact  ',
+                blockers: [],
+                next_steps: [],
+                coverage_note: '  ',
+              }),
+            ),
+    })
+    const { body } = await h.invoke()
+    assert.equal(body.status, 'success')
+    assert.equal(body.summary.releasesInserted, 1)
+    assert.deepEqual(body.ai, { succeeded: 1, failed: 0, attempts: 1, retries: 0, cooldowns: 0 })
+    const stored = h.state.inserts[0]
+    assert.equal(stored.summary, 'summary')
+    assert.deepEqual(plain(stored.newFeatures), [])
+    assert.deepEqual(plain(stored.releaseSignals), [])
+    assert.equal(stored.impactSummary, null)
+    assert.equal(stored.summaryModel, configuredModel ?? 'deepseek/deepseek-chat')
+
+    const advice = await h.load('src/lib/ai.ts').adviseOnRelease(adviceInput)
+    assert.deepEqual(plain(advice), {
+      risk_level: 'low',
+      answer: 'Test the parser.',
+      project_impact: 'Parser impact',
+      blockers: [],
+      next_steps: [],
+      coverage_note: adviceInput.coverageNote,
+    })
+    assert.equal(h.state.aiRequests.length, 2)
+    assert.equal(h.state.aiClients[0].maxRetries, 1)
+    assert.deepEqual(h.timeouts, [25000])
+
+    for (const [index, name, temperature, fields] of [
+      [0, 'release_summary', 0, 13],
+      [1, 'release_advice', 0.2, 6],
+    ]) {
+      const payload = JSON.parse(h.state.aiRequests[index].config.body)
+      assert.equal(payload.model, configuredModel ?? 'deepseek/deepseek-chat')
+      assert.equal(payload.max_tokens, 2000)
+      assert.deepEqual(payload.provider, { require_parameters: true })
+      assert.equal(payload.response_format.type, 'json_schema')
+      assert.equal(payload.response_format.json_schema.name, name)
+      assert.equal(payload.response_format.json_schema.strict, true)
+      const schema = payload.response_format.json_schema.schema
+      assert.equal(schema.additionalProperties, false)
+      assert.equal(schema.required.length, fields)
+      assert.deepEqual([...schema.required].sort(), Object.keys(schema.properties).sort())
+      assert.equal(Object.hasOwn(payload, 'reasoning_effort'), false)
+      if (configuredModel === 'openai/gpt-6-luna') {
+        assert.equal(Object.hasOwn(payload, 'temperature'), false)
+        assert.deepEqual(payload.reasoning, { effort: 'none' })
+      } else {
+        assert.equal(payload.temperature, temperature)
+        assert.equal(Object.hasOwn(payload, 'reasoning'), false)
+      }
+    }
+  })
+}
+
+for (const model of ['openai/gpt-6-luna', 'deepseek/deepseek-chat']) {
+  test(`Luna compatibility: ${model} still rejects invalid summary and advice values`, async () => {
+    const h = aiHarness({
+      env: { OPENROUTER_MODEL: model },
+      aiFetch: (config) =>
+        aiSuccess(
+          JSON.parse(config.body).response_format.json_schema.name === 'release_summary'
+            ? JSON.stringify({ version: 'v1', title: 'release', summary: 42 })
+            : JSON.stringify({ risk_level: 'invalid', answer: 'Test the parser.' }),
+        ),
+    })
+    const { body } = await h.invoke()
+    assert.equal(body.errors[0].ai.category, 'INVALID_RESPONSE')
+    assert.equal(h.state.inserts.length, 0)
+    assert.equal(h.state.aiRequests.length, 1)
+    await assert.rejects(
+      h.load('src/lib/ai.ts').adviseOnRelease(adviceInput),
+      /AI response failed validation/,
+    )
+    assert.equal(h.state.aiRequests.length, 2)
+  })
+}
+
 test('F2 actual SDK summary succeeds once and retains model/schema/persistence', async () => {
   const h = aiHarness()
   const { response, body } = await h.invoke()

@@ -9,6 +9,14 @@
 - Model: `OPENROUTER_MODEL` env or default `deepseek/deepseek-chat`
 - Requires `OPENROUTER_API_KEY`
 
+Both summary and upgrade-advice requests use strict `json_schema`,
+`provider.require_parameters: true` and `max_tokens: 2000`. When the configured model is
+exactly `openai/gpt-6-luna`, both omit temperature and send
+`reasoning: { effort: 'none' }`. Luna's temperature-bearing request was rejected during
+provider routing; see the [live compatibility evidence](../audits/luna-live-compatibility-test.md).
+Other model IDs retain temperature `0` for summaries and `0.2` for advice, with no explicit
+reasoning setting. No provider or model fallback is added by this compatibility branch.
+
 ## Release summarisation
 
 `summarizeRelease()` — called during ingestion. Returns structured JSON validated with Zod:
