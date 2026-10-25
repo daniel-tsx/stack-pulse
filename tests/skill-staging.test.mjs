@@ -5,7 +5,12 @@ import * as openai from 'openai'
 import { loadTs } from './release-test-helpers.mjs'
 import { verifyNeonTarget } from '../scripts/verify-skill-neon.mjs'
 
-const budget = loadTs('scripts/skill-eval-budget.ts', {}, { Buffer, AbortSignal })
+const diagnostics = loadTs('src/lib/skill-diagnostics.ts')
+const budget = loadTs(
+  'scripts/skill-eval-budget.ts',
+  { '../src/lib/skill-diagnostics': diagnostics },
+  { Buffer, AbortSignal },
+)
 
 test('candidate deployment leaves skill scheduling disabled while retaining existing cron jobs', () => {
   const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
@@ -76,23 +81,33 @@ const completion = (usage) => ({
   usage,
   choices: [{ message: { content: JSON.stringify(report) }, finish_reason: 'stop' }],
 })
-function harness(replies, runtime = {}) {
+function harness(replies, runtime = {}, campaignModel) {
   let requests = 0,
     now = Date.now()
   const bodies = []
+  const headers = []
+  const transport = async (_url, options) => {
+    bodies.push(JSON.parse(options.body))
+    headers.push(new Headers(options.headers))
+    const reply = replies[Math.min(requests++, replies.length - 1)]
+    return Response.json(reply.body, { status: reply.status ?? 200, headers: reply.headers })
+  }
+  const campaign = campaignModel
+    ? budget.createEvalFetch(campaignModel, transport, new AbortController().signal)
+    : null
   const client = new openai.default({
     apiKey: 'synthetic-offline',
     baseURL: 'https://openrouter.ai/api/v1',
     maxRetries: 0,
-    fetch: async (_url, options) => {
-      bodies.push(JSON.parse(options.body))
-      const reply = replies[Math.min(requests++, replies.length - 1)]
-      return Response.json(reply.body, { status: reply.status ?? 200, headers: reply.headers })
-    },
+    fetch: campaign?.fetch ?? transport,
   })
   const analyzer = loadTs(
     'src/lib/skill-analysis.ts',
-    { '@/lib/ai': { getOpenAI: () => client }, '@/lib/ai-resilience': resilience },
+    {
+      '@/lib/ai': { getOpenAI: () => client },
+      '@/lib/ai-resilience': resilience,
+      '@/lib/skill-diagnostics': diagnostics,
+    },
     { performance, process: { env: {} } },
   )
   const execution = resilience.createAiExecutionContext(now + 60000, {
@@ -104,11 +119,227 @@ function harness(replies, runtime = {}) {
     ...runtime,
   })
   return {
-    run: () => analyzer.analyzeSkillUpdate(input, execution),
+    run: (model) => analyzer.analyzeSkillUpdate(input, execution, model),
     bodies,
+    headers,
+    campaign,
     requests: () => requests,
   }
 }
+
+test('actual serialized SDK requests use each candidate model parameters with the same production schema and evidence', async () => {
+  const requests = []
+  for (const model of ['deepseek/deepseek-v4-flash-0731', 'openai/gpt-6-luna']) {
+    const h = harness(
+      [{ body: completion({ prompt_tokens: 10, completion_tokens: 20, cost: 0.001 }) }],
+      { maxAttempts: 1 },
+    )
+    await h.run(model)
+    const body = h.bodies[0]
+    requests.push(body)
+    assert.equal(body.model, model)
+    assert.equal(body.temperature, undefined)
+    assert.equal(body.provider.require_parameters, true)
+    assert.equal(body.response_format.json_schema.strict, true)
+    assert.deepEqual(
+      body.reasoning,
+      model === 'openai/gpt-6-luna' ? { effort: 'none' } : { enabled: false },
+    )
+    assert.equal(h.requests(), 1)
+  }
+  assert.deepEqual(requests[0].messages, requests[1].messages)
+  assert.deepEqual(requests[0].response_format, requests[1].response_format)
+})
+
+test('sanitized 429 diagnostics survive SDK and analyzer wrapping without changing retry policy', async () => {
+  const h = harness(
+    [
+      {
+        status: 429,
+        headers: {
+          'retry-after': '2',
+          'x-request-id': 'req-offline-123',
+          'x-generation-id': 'gen-1790000000-Offline123',
+        },
+        body: {
+          error: {
+            code: 429,
+            message: 'private-secret-request-body',
+            metadata: {
+              error_type: 'rate_limit_exceeded',
+              provider_code: 'rate_limited',
+              provider_name: 'DigitalOcean',
+              raw: 'private-secret-request-body',
+            },
+          },
+        },
+      },
+    ],
+    { maxAttempts: 1 },
+  )
+  await assert.rejects(h.run(), (error) => {
+    assert.equal(error.category, 'RATE_LIMITED')
+    const [diagnostic] = error.telemetry.diagnostics
+    assert.equal(diagnostic.httpStatus, 429)
+    assert.equal(diagnostic.errorType, 'rate_limit_exceeded')
+    assert.equal(diagnostic.providerCode, 'rate_limited')
+    assert.equal(diagnostic.retryAfterMs, 2000)
+    assert.equal(diagnostic.requestId, 'req-offline-123')
+    assert.equal(diagnostic.generationId, 'gen-1790000000-Offline123')
+    assert.equal(diagnostic.provider, 'DigitalOcean')
+    assert.doesNotMatch(
+      JSON.stringify(error.telemetry),
+      /private-secret-request-body|authorization|Bearer/i,
+    )
+    return true
+  })
+  assert.equal(h.requests(), 1)
+})
+
+test('both benchmark campaigns serialize the same evidence/schema with pinned standard providers and no fallbacks', async () => {
+  const bodies = []
+  for (const [model, provider] of [
+    ['deepseek/deepseek-v4-flash-0731', 'digitalocean'],
+    ['openai/gpt-6-luna', 'openai'],
+  ]) {
+    const body = {
+      ...completion({ prompt_tokens: 10, completion_tokens: 20, cost: 0.001, is_byok: false }),
+      model,
+    }
+    const h = harness([{ body }], { maxAttempts: 1 }, model)
+    await h.run(model)
+    const [serialized] = h.bodies
+    bodies.push(serialized)
+    assert.deepEqual(serialized.provider.only, [provider])
+    assert.deepEqual(serialized.provider.order, [provider])
+    assert.equal(serialized.provider.allow_fallbacks, false)
+    assert.equal(serialized.provider.require_parameters, true)
+    assert.deepEqual(serialized.provider.max_price, { prompt: 0.2, completion: 0.75, request: 0 })
+    assert.equal(serialized.service_tier, 'default')
+    assert.equal(serialized.usage.include, true)
+    assert.equal(serialized.models, undefined)
+    assert.equal(h.headers[0].get('X-OpenRouter-Metadata'), 'enabled')
+    assert.equal(h.headers[0].get('x-stainless-retry-count'), '0')
+    assert.equal(h.requests(), 1)
+  }
+  assert.deepEqual(bodies[0].messages, bodies[1].messages)
+  assert.deepEqual(bodies[0].response_format, bodies[1].response_format)
+  assert.equal(budget.SKILL_EVAL_RUBRIC.length, 4)
+  assert.equal(budget.SKILL_EVAL_COST_ALLOWANCE, 0.0279)
+})
+
+test('evaluation transport retains top-level 429 routing metadata lost by SDK errors and includes reported failure charges', async () => {
+  const model = 'deepseek/deepseek-v4-flash-0731'
+  const h = harness(
+    [
+      {
+        status: 429,
+        headers: { 'retry-after': '3', 'x-generation-id': 'gen-1790000000-OfflineFailure' },
+        body: {
+          error: {
+            code: 429,
+            message: 'secret-body',
+            metadata: { error_type: 'rate_limit_exceeded', provider_name: 'DigitalOcean' },
+          },
+          openrouter_metadata: { attempt: 1, is_byok: false, pipeline: [{ data: 'secret-body' }] },
+          usage: { cost: 0.0001 },
+        },
+      },
+    ],
+    { maxAttempts: 1 },
+    model,
+  )
+  await assert.rejects(h.run(model))
+  const [row] = h.campaign.audit
+  assert.equal(row.diagnostics.routingAttempts, 1)
+  assert.equal(row.diagnostics.retryAfterMs, 3000)
+  assert.equal(row.generationId, 'gen-1790000000-OfflineFailure')
+  assert.equal(row.reportedCostUsd, 0.0001)
+  assert.equal(row.rawContent, null)
+  assert.doesNotMatch(JSON.stringify(row), /secret-body|pipeline/)
+  assert.equal(h.requests(), 1)
+})
+
+test('diagnostics omit sensitive or unrecognized metadata values and preserve only safe fields', () => {
+  const value = diagnostics.skillDiagnostics(
+    {
+      id: 'gen-sk-or-secret',
+      provider: 'sk-or-secret',
+      error: {
+        message: 'private-request-body',
+        metadata: {
+          error_type: 'sk-or-secret',
+          provider_code: 'private-request-body',
+          raw: 'Authorization: Bearer secret',
+        },
+      },
+      openrouter_metadata: { attempt: 999999, pipeline: [{ data: 'private-request-body' }] },
+    },
+    new Headers({ 'x-request-id': 'Bearer secret', 'retry-after': 'not-a-date' }),
+    429,
+  )
+  assert.equal(value.httpStatus, 429)
+  for (const key of [
+    'errorType',
+    'providerCode',
+    'requestId',
+    'generationId',
+    'provider',
+    'retryAfterMs',
+    'routingAttempts',
+  ])
+    assert.equal(value[key], null)
+  assert.doesNotMatch(JSON.stringify(value), /sk-or|Bearer|private-request-body|Authorization/)
+})
+
+test('unexpected BYOK use stops the benchmark after one possibly billable dispatch', async () => {
+  const model = 'deepseek/deepseek-v4-flash-0731'
+  const h = harness(
+    [
+      {
+        body: completion({ prompt_tokens: 10, completion_tokens: 20, cost: 0.001, is_byok: true }),
+      },
+    ],
+    { maxAttempts: 1 },
+    model,
+  )
+  await assert.rejects(h.run(model))
+  assert.equal(h.requests(), 1)
+  assert.equal(h.campaign.audit[0].reportedCostUsd, 0.001)
+  assert.equal(h.campaign.audit[0].diagnostics.isByok, true)
+})
+
+test('evaluation byte ceiling applies after provider and usage fields are serialized', async () => {
+  let calls = 0
+  const model = 'deepseek/deepseek-v4-flash-0731'
+  const guard = budget.createEvalFetch(
+    model,
+    async () => {
+      calls++
+      return Response.json({})
+    },
+    new AbortController().signal,
+  )
+  const body = {
+    model,
+    max_tokens: 3000,
+    provider: { require_parameters: true },
+    response_format: { json_schema: { strict: true } },
+    padding: '',
+  }
+  body.padding = 'x'.repeat(
+    budget.SKILL_EVAL_BUDGET.requestBytes - Buffer.byteLength(JSON.stringify(body)),
+  )
+  assert.equal(Buffer.byteLength(JSON.stringify(body)), 11000)
+  await assert.rejects(
+    guard.fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  )
+  assert.equal(calls, 0)
+  assert.equal(guard.requests(), 0)
+})
 
 test('actual SDK and retry context preserve billable HTTP-200 errors, tokens, reasoning subset and total cost', async () => {
   const first = {
@@ -251,12 +482,12 @@ test('live evaluation refuses uncapped/shared keys and enforces endpoint, reques
     assert.throws(() => budget.verifyEvalKey({ ...key, ...override }))
   let calls = 0
   const guard = budget.createEvalFetch(
-    'test/model',
+    'deepseek/deepseek-v4-flash-0731',
     async (_url, options) => {
       calls++
       const body = JSON.parse(options.body)
       assert.equal(options.redirect, 'error')
-      assert.equal(body.provider.max_price.completion, 5)
+      assert.equal(body.provider.max_price.completion, 0.75)
       assert.equal(body.provider.allow_fallbacks, false)
       return Response.json({ id: 'gen-offline' })
     },
@@ -264,7 +495,7 @@ test('live evaluation refuses uncapped/shared keys and enforces endpoint, reques
   )
   const url = 'https://openrouter.ai/api/v1/chat/completions'
   const params = {
-    model: 'test/model',
+    model: 'deepseek/deepseek-v4-flash-0731',
     max_tokens: 3000,
     provider: { require_parameters: true },
     response_format: { json_schema: { strict: true } },

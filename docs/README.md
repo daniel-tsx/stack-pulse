@@ -39,18 +39,19 @@ Index for humans and AI agents. Agents should start at [AGENT_START_HERE.md](./A
 
 ### Operations
 
-| Doc                                                                         | Topic                                                                             |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [local-development.md](./operations/local-development.md)                   | Install, dev server, scripts                                                      |
-| [environment-variables.md](./operations/environment-variables.md)           | Full env reference                                                                |
-| [database.md](./operations/database.md)                                     | Schema, migrations, seed                                                          |
-| [deployment.md](./operations/deployment.md)                                 | Vercel, cron, production checks                                                   |
-| [verification.md](./operations/verification.md)                             | Typecheck, lint, build, manual checks                                             |
-| [ai-workflow.md](./operations/ai-workflow.md)                               | Pinned and local agent skills, synchronization, CI guards and compatibility pilot |
-| [skill-staging-verification.md](./operations/skill-staging-verification.md) | Skill Updates isolation, live approval gates, budgets and rollout sequence        |
-| [skill-openrouter-live-evaluation.md](./audits/skill-openrouter-live-evaluation.md) | Phase B live results, report quality and billing limitations               |
-| [typescript.md](./operations/typescript.md)                                 | Why TypeScript 7 and 6 are both installed                                         |
-| [navigation-and-caching.md](./operations/navigation-and-caching.md)         | Cache Components, Partial Prefetching, Suspense, and cache policy                 |
+| Doc                                                                                   | Topic                                                                             |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [local-development.md](./operations/local-development.md)                             | Install, dev server, scripts                                                      |
+| [environment-variables.md](./operations/environment-variables.md)                     | Full env reference                                                                |
+| [database.md](./operations/database.md)                                               | Schema, migrations, seed                                                          |
+| [deployment.md](./operations/deployment.md)                                           | Vercel, cron, production checks                                                   |
+| [verification.md](./operations/verification.md)                                       | Typecheck, lint, build, manual checks                                             |
+| [ai-workflow.md](./operations/ai-workflow.md)                                         | Pinned and local agent skills, synchronization, CI guards and compatibility pilot |
+| [skill-staging-verification.md](./operations/skill-staging-verification.md)           | Skill Updates isolation, live approval gates, budgets and rollout sequence        |
+| [skill-openrouter-live-evaluation.md](./audits/skill-openrouter-live-evaluation.md)   | Phase B live results, report quality and billing limitations                      |
+| [skill-phase-b-benchmark-readiness.md](./audits/skill-phase-b-benchmark-readiness.md) | Phase B semantic/diagnostic hardening and proposed fair model benchmarks          |
+| [typescript.md](./operations/typescript.md)                                           | Why TypeScript 7 and 6 are both installed                                         |
+| [navigation-and-caching.md](./operations/navigation-and-caching.md)                   | Cache Components, Partial Prefetching, Suspense, and cache policy                 |
 
 ---
 

@@ -80,6 +80,7 @@ function analyzer(
   return loadTs(
     'src/lib/skill-analysis.ts',
     {
+      '@/lib/skill-diagnostics': loadTs('src/lib/skill-diagnostics.ts'),
       '@/lib/ai': { getOpenAI: () => ({ chat: { completions: { create } } }) },
       '@/lib/ai-resilience': resilience,
     },

@@ -1,3 +1,5 @@
+import type { SkillDiagnostic } from './skill-diagnostics'
+
 export type SkillFile = {
   path: string
   status: 'added' | 'modified' | 'deleted' | 'renamed'
@@ -37,5 +39,6 @@ export type SkillTelemetry = {
   durationMs: number
   attempts: number
   unreportedAttempts: number
+  diagnostics?: SkillDiagnostic[]
   runs?: Omit<SkillTelemetry, 'runs'>[]
 }

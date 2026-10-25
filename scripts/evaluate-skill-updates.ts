@@ -3,9 +3,17 @@ import {
   analyzeSkillUpdate,
   validateSkillReport,
   SkillAnalysisFailure,
+  skillReportSchema,
 } from '../src/lib/skill-analysis'
 import { createAiExecutionContext } from '../src/lib/ai-resilience'
-import { createEvalFetch, SKILL_EVAL_BUDGET, verifyEvalKey } from './skill-eval-budget'
+import {
+  createEvalFetch,
+  SKILL_EVAL_BUDGET,
+  SKILL_EVAL_CAMPAIGNS,
+  SKILL_EVAL_COST_ALLOWANCE,
+  SKILL_EVAL_RUBRIC,
+  verifyEvalKey,
+} from './skill-eval-budget'
 import type { SkillEvidence } from '../src/lib/skill-types'
 
 type Fixture = {
@@ -23,17 +31,14 @@ async function main() {
   const live = process.argv.includes('--live')
   const plan = process.argv.includes('--plan-live')
   const modelArg = process.argv.find((arg) => arg.startsWith('--model='))?.slice(8)
-  const candidates = [
-    'deepseek/deepseek-chat',
-    'deepseek/deepseek-v4-flash-0731',
-    'openai/gpt-6-luna',
-  ]
+  const candidates = Object.keys(SKILL_EVAL_CAMPAIGNS)
   if (modelArg && !candidates.includes(modelArg))
     throw new Error('Select a reviewed candidate model')
   const model = modelArg || process.env.SKILL_UPDATES_MODEL || 'deepseek/deepseek-v4-flash-0731'
   if (!candidates.includes(model))
     throw new Error('Configured model needs a reviewed evaluation plan')
   if (plan) {
+    const profile = SKILL_EVAL_CAMPAIGNS[model as keyof typeof SKILL_EVAL_CAMPAIGNS]
     console.info(
       JSON.stringify({
         mode: 'live-plan-only',
@@ -42,7 +47,12 @@ async function main() {
         budget: SKILL_EVAL_BUDGET,
         totalInputTokenAllowance: 72000,
         totalOutputTokenCeiling: 18000,
-        conservativePriceEstimateUsd: 0.162,
+        provider: profile.provider,
+        serviceTier: 'default',
+        rubric: SKILL_EVAL_RUBRIC,
+        priceEstimateUsd: (72000 * profile.inputPrice + 18000 * profile.outputPrice) / 1e6,
+        conservativePriceEstimateUsd: SKILL_EVAL_COST_ALLOWANCE,
+        combinedTwoCampaignAllowanceUsd: 2 * SKILL_EVAL_COST_ALLOWANCE,
         tokenizerCountVerified: false,
         paidRequests: 0,
       }),
@@ -55,7 +65,7 @@ async function main() {
   const originalFetch = globalThis.fetch
   const key = process.env.SKILL_EVAL_OPENROUTER_API_KEY
   if (live) {
-    if (process.env.SKILL_EVAL_APPROVED !== 'six-synthetic-fixtures-usd-0.25' || !key)
+    if (process.env.SKILL_EVAL_APPROVED !== `skill-benchmark:${model}:six-fixtures` || !key)
       throw new Error(
         'Explicit campaign approval and a dedicated SKILL_EVAL_OPENROUTER_API_KEY are required',
       )
@@ -163,6 +173,7 @@ async function main() {
               execution,
               model,
             )
+            const rawReport = savedRawReport(campaign!)
             console.info(
               JSON.stringify({
                 fixture: fixture.id,
@@ -172,6 +183,10 @@ async function main() {
                 expected: fixture.expected,
                 reviewFocus: fixture.focus,
                 report: result.report,
+                rawReport,
+                rawRecommendationMatch: rawReport?.recommendation === fixture.expected,
+                rubric: SKILL_EVAL_RUBRIC,
+                qualityAcceptance: 'PENDING_HUMAN_REVIEW',
                 telemetry: result.telemetry,
                 manualReviewRequired: [
                   'behavior identification',
@@ -184,6 +199,8 @@ async function main() {
             knownCostUsd += result.telemetry.costUsd ?? 0
             if (
               result.telemetry.costKind !== 'reported' ||
+              !rawReport ||
+              result.telemetry.returnedModel !== model ||
               result.telemetry.inputTokens === null ||
               result.telemetry.outputTokens === null ||
               result.telemetry.inputTokens > SKILL_EVAL_BUDGET.inputTokensPerRequest ||
@@ -213,6 +230,13 @@ async function main() {
               ...(error instanceof SkillAnalysisFailure
                 ? { category: error.category, telemetry: error.telemetry }
                 : {}),
+              ...(campaign
+                ? {
+                    rawReport: savedRawReport(campaign),
+                    rubric: SKILL_EVAL_RUBRIC,
+                    qualityAcceptance: 'PENDING_HUMAN_REVIEW',
+                  }
+                : {}),
             }),
           )
           process.exitCode = 1
@@ -227,12 +251,31 @@ async function main() {
         JSON.stringify({
           mode: 'live-campaign-audit',
           requests: campaign.requests(),
-          knownReportedCostUsd: knownCostUsd,
-          audit: campaign.audit,
+          knownReportedCostUsd: campaign.audit.reduce(
+            (total, row) => total + (row.reportedCostUsd ?? 0),
+            0,
+          ),
+          unknownChargeRequests:
+            campaign.requests() -
+            campaign.audit.filter((row) => row.reportedCostUsd !== null).length,
+          audit: campaign.audit.map((row) => ({
+            status: row.status,
+            generationId: row.generationId,
+            diagnostics: row.diagnostics,
+            reportedCostUsd: row.reportedCostUsd,
+          })),
           billingReconciliationRequired: true,
           humanAcceptanceRequired: true,
         }),
       )
+  }
+}
+function savedRawReport(campaign: ReturnType<typeof createEvalFetch>) {
+  try {
+    const raw = skillReportSchema.safeParse(JSON.parse(campaign.audit.at(-1)?.rawContent ?? ''))
+    return raw.success ? raw.data : null
+  } catch {
+    return null
   }
 }
 void main().catch(() => {

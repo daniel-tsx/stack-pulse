@@ -6,13 +6,13 @@ This is the operational source of truth for the remaining integration gates. The
 
 ## Current evidence and verdict
 
-| Boundary | Result | Evidence and remaining uncertainty |
-| --- | --- | --- |
-| Neon HTTP cancellation / unknown commit | **NOT RUN on Neon; PASS locally** | Actual installed Neon SDK, production `getDb`/store and Drizzle run through a loopback HTTP bridge into owned PostgreSQL. Abort before dispatch, controlled pre-execution failure, lost event/checkpoint acknowledgement, lost lease acknowledgement, stale fencing, interrupted analysis and retained completed writes pass. This does not prove Neon's hosted cancellation behavior or that abort rolls back SQL. |
-| Overlapping ingestion / real PostgreSQL | **PASS locally** | Eight existing integration tests use real leases/constraints/atomic statements, including interleaved old/new GitHub HEAD responses, lease expiry, valid force-push and recovery. Hosted Neon variant remains unrun. |
-| Configured OpenRouter strict schema | **NOT RUN live** | Six offline contracts pass. Actual SDK mock tests preserve strict JSON Schema and routing requirements; advertised provider support is not a compatibility result. Local configuration has no override, so the configured default is `deepseek/deepseek-v4-flash-0731`. |
-| Tokens / provider errors / cost | **PASS offline; NOT RUN against billing** | Actual SDK plus production retry context verify HTTP 401/402/429/503, billable HTTP-200 errors, invalid/truncated output, cancellation, zero/absent usage, reasoning counts and partial/unknown charges. No actual OpenRouter invoice/usage reconciliation exists yet. |
-| Migration / cron rollout | **PASS local rehearsal; NOT RUN hosted** | Drizzle journal through `0009`, then `0010`, then rerun passes in an isolated schema; synthetic legacy users/technologies remain identical and only two feature tables are added. Explicit `public` schema references are redirected for isolation. Production schema/journal, deployment plan and credentials have not been inspected remotely. Skill cron registration is absent from `vercel.json` pending rollout approval. |
+| Boundary                                | Result                                    | Evidence and remaining uncertainty                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Neon HTTP cancellation / unknown commit | **NOT RUN on Neon; PASS locally**         | Actual installed Neon SDK, production `getDb`/store and Drizzle run through a loopback HTTP bridge into owned PostgreSQL. Abort before dispatch, controlled pre-execution failure, lost event/checkpoint acknowledgement, lost lease acknowledgement, stale fencing, interrupted analysis and retained completed writes pass. This does not prove Neon's hosted cancellation behavior or that abort rolls back SQL.             |
+| Overlapping ingestion / real PostgreSQL | **PASS locally**                          | Eight existing integration tests use real leases/constraints/atomic statements, including interleaved old/new GitHub HEAD responses, lease expiry, valid force-push and recovery. Hosted Neon variant remains unrun.                                                                                                                                                                                                            |
+| Configured OpenRouter strict schema     | **NOT RUN live**                          | Six offline contracts pass. Actual SDK mock tests preserve strict JSON Schema and routing requirements; advertised provider support is not a compatibility result. Local configuration has no override, so the configured default is `deepseek/deepseek-v4-flash-0731`.                                                                                                                                                         |
+| Tokens / provider errors / cost         | **PASS offline; NOT RUN against billing** | Actual SDK plus production retry context verify HTTP 401/402/429/503, billable HTTP-200 errors, invalid/truncated output, cancellation, zero/absent usage, reasoning counts and partial/unknown charges. No actual OpenRouter invoice/usage reconciliation exists yet.                                                                                                                                                          |
+| Migration / cron rollout                | **PASS local rehearsal; NOT RUN hosted**  | Drizzle journal through `0009`, then `0010`, then rerun passes in an isolated schema; synthetic legacy users/technologies remain identical and only two feature tables are added. Explicit `public` schema references are redirected for isolation. Production schema/journal, deployment plan and credentials have not been inspected remotely. Skill cron registration is absent from `vercel.json` pending rollout approval. |
 
 **GO to approval of bounded disposable staging checks. NO-GO for production rollout or cron enablement.** Live boundaries must pass and reports must be reviewed before advancing. No deployment, production migration, cloud resource creation, paid inference, commit or push was performed in this preparation.
 
@@ -101,27 +101,30 @@ Verify deletion against the approved disposable branch ID; delete a newly create
 
 ## Approval gate B: six paid synthetic model evaluations
 
-Approve exactly one model, the six checked-in fixtures and this budget. Default: `deepseek/deepseek-v4-flash-0731`; no release-model change or automatic model escalation. Only synthetic content is sent. No source repository, user data or database access is involved.
+Approve exactly one model, the six checked-in fixtures and this budget per campaign. The prepared comparison has two separate campaigns: `deepseek/deepseek-v4-flash-0731` pinned to `digitalocean`, and `openai/gpt-6-luna` pinned to `openai`, both standard tier. Maximum twelve inference dispatches total only after separate approval; neither campaign is approved by preparing its plan. No release-model change or automatic model/provider switching. Only synthetic content is sent. No source repository, user data or database access is involved. See the [benchmark readiness audit](../audits/skill-phase-b-benchmark-readiness.md) for the common rubric, serialization checks and outstanding live boundaries. The [earlier partial evaluation](../audits/skill-openrouter-live-evaluation.md) failed; its one-time shared-key exceptions do not relax this runbook.
 
-| Budget | Limit |
-| --- | --- |
-| HTTP requests | At most 6 inference dispatches plus 1 read-only key preflight; serial, one SDK attempt/fixture; stop on the first provider/validation/billing failure |
-| Input | 12,000 native-token allowance/request, 72,000 campaign allowance; preflight refuses serialized requests over 11,000 UTF-8 bytes |
-| Output | `max_tokens=3000`, at most 18,000 campaign output tokens |
-| Time | 25 seconds/request; 180 seconds including key preflight and response processing |
-| Routing price | At most $1/M input, $5/M output, $0/request; provider fallback disabled; strict schema and required parameters retained |
-| Spend | $0.162 conservative token-price estimate at those allowances; **$0.25 maximum approved key cap** |
+| Budget        | Limit                                                                                                                                                                  |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP requests | At most 6 inference dispatches plus 1 read-only key preflight; serial, one SDK attempt/fixture; stop on the first provider/validation/billing failure                  |
+| Input         | 12,000 native-token allowance/request, 72,000 campaign allowance; preflight refuses serialized requests over 11,000 UTF-8 bytes                                        |
+| Output        | `max_tokens=3000`, at most 18,000 campaign output tokens                                                                                                               |
+| Time          | 25 seconds/request; 180 seconds including key preflight and response processing                                                                                        |
+| Routing price | At most $0.20/M input, $0.75/M output, $0/request; provider fallback disabled; strict schema and required parameters retained                                          |
+| Spend         | $0.0279 token-price allowance per campaign, $0.0558 across two; **$0.25 maximum dedicated lifetime key cap** remains required (recommend $0.03 per fresh campaign key) |
 
-The byte check reserves framing room but is not a native tokenizer proof. Actual returned tokens are checked after each call; excess/missing usage halts the campaign. The dedicated provider-enforced key cap is the financial backstop for unknown charges/timeouts. Price filtering can exclude a provider; failure under that restriction is not proof the model works elsewhere. No cache discount is assumed. Provider-internal accounting and a timed-out request's final charge require reconciliation.
+The byte check applies to the final serialized request, reserves framing room and is not a native tokenizer proof. Actual returned tokens are checked after each call; excess/missing usage halts the campaign. The dedicated provider-enforced key cap is the financial backstop for unknown charges/timeouts. Price filtering can exclude a provider; failure under that restriction is not proof the model works elsewhere. No cache discount is assumed. Provider-internal accounting and a timed-out request's final charge require reconciliation. Both campaigns use `service_tier: default`, usage accounting and routing metadata; unexpected BYOK stops execution.
 
 Create an unshared, unused evaluation key with a lifetime limit of **$0.25**, no reset, and Include BYOK enabled. Allow only the approved model and disable BYOK for this key/campaign in the provider controls. The harness verifies key limit/reset/remaining balance and zero prior usage through `GET /api/v1/key` before inference. Put only `SKILL_EVAL_OPENROUTER_API_KEY=...` in ignored `.env.skill-eval`; it intentionally ignores an ambient application OpenRouter key.
 
 ```bat
 pnpm skills:eval --plan-live
-set SKILL_EVAL_APPROVED=six-synthetic-fixtures-usd-0.25
+pnpm skills:eval --plan-live --model=openai/gpt-6-luna
+set SKILL_EVAL_APPROVED=skill-benchmark:deepseek/deepseek-v4-flash-0731:six-fixtures
 node --env-file=.env.skill-eval node_modules/tsx/dist/cli.mjs scripts/evaluate-skill-updates.ts --live --model=deepseek/deepseek-v4-flash-0731 > .env.skill-eval-results.jsonl
 set SKILL_EVAL_APPROVED=
 ```
+
+For Luna, after its separate approval and a fresh campaign key, use `SKILL_EVAL_APPROVED=skill-benchmark:openai/gpt-6-luna:six-fixtures`, `--model=openai/gpt-6-luna`, and a separate ignored output file. Do not run both concurrently or repeat a failed fixture. The same fixture file, evidence, prompt, schema and four-item `SKILL_EVAL_RUBRIC` apply to both. Preserve raw model reports separately from server-normalized reports; a server correction is not a model-quality pass. All four rubric criteria must pass for each human-accepted report. The fixed expected recommendation is diagnostic: a policy-consistent alternative needs an explicit human rationale, not automatic acceptance. Freeze the rubric and source revision before either run.
 
 Expected: six validated reports using the exact production schema and analyzer, returned model/provider, tokens, known reported cost, latency and generation IDs. Exit 0 means schema/citation/budget checks passed, **not human acceptance**. Review every inference for unsupported assertions, evidence relevance and useful recommendations. Record accepted count separately. The summary includes known cost from successful and failed analyzed responses; missing response charges remain unknown. Reconcile generation IDs and dedicated-key usage with OpenRouter activity before declaring billing accurate. If zero reports are human-accepted, cost/accepted-report is undefined. Otherwise divide **all** campaign charges, including failures, by accepted reports; never divide only successful-call spend.
 
@@ -177,13 +180,13 @@ Preparation review overlay: **Approve with follow-ups**. Isolation, budgets, rec
 
 ## Local verification record · 2026-10-21
 
-| Check | Actual result |
-| --- | --- |
-| `pnpm test:skills` with pinned local ownership proof | **56 passed**, zero skipped; eight SQL integration cases, four HTTP recovery cases plus guard, one migration-journal rehearsal, SDK/budget/target tests and existing domain/review cases |
-| `pnpm test:cron` | **118 passed**, zero skipped; default three-attempt behavior retained |
-| `pnpm typecheck`, `pnpm lint`, `git diff --check` | **PASS** |
-| `pnpm skills:eval` | **6 offline fixtures passed**; no live model quality claim |
-| Both plan commands | **PASS**, zero requests |
-| Hosted Neon, paid evaluation, hosted preview, production migration/cron | **NOT RUN**, require approval |
+| Check                                                                   | Actual result                                                                                                                                                                            |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm test:skills` with pinned local ownership proof                    | **56 passed**, zero skipped; eight SQL integration cases, four HTTP recovery cases plus guard, one migration-journal rehearsal, SDK/budget/target tests and existing domain/review cases |
+| `pnpm test:cron`                                                        | **118 passed**, zero skipped; default three-attempt behavior retained                                                                                                                    |
+| `pnpm typecheck`, `pnpm lint`, `git diff --check`                       | **PASS**                                                                                                                                                                                 |
+| `pnpm skills:eval`                                                      | **6 offline fixtures passed**; no live model quality claim                                                                                                                               |
+| Both plan commands                                                      | **PASS**, zero requests                                                                                                                                                                  |
+| Hosted Neon, paid evaluation, hosted preview, production migration/cron | **NOT RUN**, require approval                                                                                                                                                            |
 
 Saved local test output: `node_modules/.cache/skill-staging-tests.log` and `node_modules/.cache/skill-staging-cron-tests.log` (ignored). The normal sandbox denied loopback sockets; the owned local tests passed with the sandbox exception. No remote test target or inference credential was used.
