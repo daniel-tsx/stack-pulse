@@ -6,7 +6,7 @@
 
 ## Evidence and scope
 
-The [earlier partial evaluation](skill-openrouter-live-evaluation.md) produced two reports before DeepInfra returned HTTP429. Independent quality review accepted instructions with limitations and rejected references: complete evidence established an added instruction, but the model chose insufficient evidence and quoted unchanged surrounding guidance. JSON Schema/Zod validity did not establish usefulness. The latest failure analysis separately identified lost response diagnostics and an evaluator label that can disagree with the server's mandatory-review policy. Earlier reports and their findings are preserved, not rewritten as passing results.
+The [earlier partial evaluation](skill-openrouter-live-evaluation.md) produced two reports before DeepInfra returned HTTP 429. Independent quality review accepted instructions with limitations and rejected references: complete evidence established an added instruction, but the model chose insufficient evidence and quoted unchanged surrounding guidance. JSON Schema/Zod validity did not establish usefulness. The latest failure analysis separately identified lost response diagnostics and an evaluator label that can disagree with the server's mandatory-review policy. Earlier reports and their findings are preserved, not rewritten as passing results.
 
 The task branch starts from refreshed `origin/main` (`558d223299c0cafc94965ec5d9b066eb58b0c72c`) and includes the three existing local Phase B documentation commits so the original audit remains available. Application changes below are new to this task. The repository-local ponytail, ponytail-review and codex-review procedures apply; engineering-workflow was not requested.
 
@@ -114,9 +114,9 @@ The pinned pnpm 11.1.3 was obtained and installed the existing lockfile dependen
 
 ## Independent review and corrections
 
-The initial independent review found two P2 issues: a later fixture with no response could receive the preceding raw report, and a JSON-null HTTP error could bypass audit capture. It also identified an inherited-property model-allowlist gap. All three were accepted in one correction wave. Each fixture now captures its audit index, invalid JSON envelopes retain safe HTTP diagnostics, and model profiles require own-property membership. Offline regressions reproduce the success-then-no-response, JSON-null429 and inherited-name scenarios. The staging suite passes21/21 and the full skill suite passes55 with13 database skips.
+The initial independent review found two P2 issues: a later fixture with no response could receive the preceding raw report, and a JSON-null HTTP error could bypass audit capture. It also identified an inherited-property model-allowlist gap. All three were accepted in one correction wave. Each fixture now captures its audit index, invalid JSON envelopes retain safe HTTP diagnostics, and model profiles require own-property membership. Offline regressions reproduce the success-then-no-response, JSON-null 429 and inherited-name scenarios. The staging suite passes 21/21 and the full skill suite passes 55 with 13 database skips.
 
-That reviewer hit a model-capacity error before completing its review; the partial findings are retained and are not approval. Complete review of the corrected checkpoint remains required.
+That reviewer hit a model-capacity error before completing its review; the partial findings are retained and are not approval. A fresh full independent read-only review of corrected checkpoint `36aa980aa4aae8a550a5dd4fa3aba50c07ecb014` found no new blocking P0/P1/P2 findings and confirmed all three corrections. The reviewer independently reran the focused core/review/staging suites: 54 passed, zero failed/skipped, and `git diff --check` passed.
 
 ## Remaining uncertainties and production assessment
 
@@ -124,4 +124,4 @@ DigitalOcean and OpenAI acceptance of the exact strict request, output quality, 
 
 The earlier DeepInfra 429 subtype/Retry-After was never retained. A later read-only analysis recovered request-detail ID `gen-1792911393-pePTA1lAJnHLQWiX90Vy`; generation lookup returned 404, so its charge remains unresolved. This implementation does not rerun it or declare it free.
 
-Independent design review found no blocking findings, requiring raw quality scores, inferred-citation precision, legitimate insufficient outcomes and transport-level diagnostics to remain explicit. Final independent code review is required before treating this implementation checkpoint as reviewed. Neither an offline pass nor reviewer approval authorizes paid execution, hosted preview or production activation. Staging review gates and later production backup/registration/baseline/deployment gates remain in force; cron stays unregistered.
+Independent design review found no blocking findings, requiring raw quality scores, inferred-citation precision, legitimate insufficient outcomes and transport-level diagnostics to remain explicit. The fresh final code review found no blocking implementation findings; live acceptance remains unverified. Neither an offline pass nor reviewer approval authorizes paid execution, hosted preview or production activation. Staging review gates and later production backup/registration/baseline/deployment gates remain in force; cron stays unregistered.
