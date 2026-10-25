@@ -8,6 +8,7 @@ import {
 import { createAiExecutionContext } from '../src/lib/ai-resilience'
 import {
   createEvalFetch,
+  fixtureRawContent,
   SKILL_EVAL_BUDGET,
   SKILL_EVAL_CAMPAIGNS,
   SKILL_EVAL_COST_ALLOWANCE,
@@ -89,6 +90,7 @@ async function main() {
   try {
     for (const model of models) {
       for (const fixture of fixtures) {
+        const auditIndex = campaign?.audit.length ?? 0
         const path = `skills/example/${fixture.path}`
         const evidence: SkillEvidence = {
           complete: fixture.id !== 'insufficient',
@@ -173,7 +175,7 @@ async function main() {
               execution,
               model,
             )
-            const rawReport = savedRawReport(campaign!)
+            const rawReport = savedRawReport(campaign!, auditIndex)
             console.info(
               JSON.stringify({
                 fixture: fixture.id,
@@ -232,7 +234,7 @@ async function main() {
                 : {}),
               ...(campaign
                 ? {
-                    rawReport: savedRawReport(campaign),
+                    rawReport: savedRawReport(campaign, auditIndex),
                     rubric: SKILL_EVAL_RUBRIC,
                     qualityAcceptance: 'PENDING_HUMAN_REVIEW',
                   }
@@ -270,9 +272,11 @@ async function main() {
       )
   }
 }
-function savedRawReport(campaign: ReturnType<typeof createEvalFetch>) {
+function savedRawReport(campaign: ReturnType<typeof createEvalFetch>, auditIndex: number) {
   try {
-    const raw = skillReportSchema.safeParse(JSON.parse(campaign.audit.at(-1)?.rawContent ?? ''))
+    const raw = skillReportSchema.safeParse(
+      JSON.parse(fixtureRawContent(campaign, auditIndex) ?? ''),
+    )
     return raw.success ? raw.data : null
   } catch {
     return null

@@ -341,6 +341,66 @@ test('evaluation byte ceiling applies after provider and usage fields are serial
   assert.equal(guard.requests(), 0)
 })
 
+test('a later fixture without a response never reuses the preceding raw report', async () => {
+  let calls = 0
+  const model = 'deepseek/deepseek-v4-flash-0731'
+  const guard = budget.createEvalFetch(
+    model,
+    async () => {
+      if (calls++ === 0) return Response.json(completion({ cost: 0 }))
+      throw new TypeError('synthetic network failure')
+    },
+    new AbortController().signal,
+  )
+  const options = {
+    method: 'POST',
+    body: JSON.stringify({
+      model,
+      max_tokens: 3000,
+      provider: { require_parameters: true },
+      response_format: { json_schema: { strict: true } },
+    }),
+  }
+  const url = 'https://openrouter.ai/api/v1/chat/completions'
+  await guard.fetch(url, options)
+  assert.equal(budget.fixtureRawContent(guard, 0), JSON.stringify(report))
+  const nextFixtureIndex = guard.audit.length
+  await assert.rejects(guard.fetch(url, options))
+  assert.equal(budget.fixtureRawContent(guard, nextFixtureIndex), null)
+  assert.equal(guard.requests(), 2)
+  assert.equal(guard.audit.length, 1)
+})
+
+test('JSON-null error responses preserve HTTP diagnostics and unreviewed model names fail before dispatch', async () => {
+  const model = 'deepseek/deepseek-v4-flash-0731'
+  assert.throws(() =>
+    budget.createEvalFetch('toString', async () => Response.json({}), new AbortController().signal),
+  )
+  const guard = budget.createEvalFetch(
+    model,
+    async () =>
+      Response.json(null, {
+        status: 429,
+        headers: { 'retry-after': '4', 'x-generation-id': 'gen-1790000000-NullFailure' },
+      }),
+    new AbortController().signal,
+  )
+  await guard.fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    body: JSON.stringify({
+      model,
+      max_tokens: 3000,
+      provider: { require_parameters: true },
+      response_format: { json_schema: { strict: true } },
+    }),
+  })
+  assert.equal(guard.audit[0].status, 429)
+  assert.equal(guard.audit[0].diagnostics.retryAfterMs, 4000)
+  assert.equal(guard.audit[0].generationId, 'gen-1790000000-NullFailure')
+  assert.equal(guard.audit[0].reportedCostUsd, null)
+  assert.equal(budget.fixtureRawContent(guard, 0), null)
+})
+
 test('actual SDK and retry context preserve billable HTTP-200 errors, tokens, reasoning subset and total cost', async () => {
   const first = {
     ...completion({

@@ -98,7 +98,7 @@ Four new regressions failed against the original implementation before correctio
 
 | Command/check                                                             | Actual result                                                                                                                                                      |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `node --test tests/skill-*.test.mjs`                                      | PASS: 53 passed, 13 env-gated database cases skipped, 0 failed, 66 total                                                                                           |
+| `node --test tests/skill-*.test.mjs`                                      | PASS: 55 passed, 13 env-gated database cases skipped, 0 failed, 68 total                                                                                           |
 | `node --test tests/cron-*.test.mjs`                                       | PASS: 134 passed, 1 env-gated PostgreSQL case skipped, 0 failed,135 total                                                                                          |
 | `node node_modules/@typescript/native/bin/tsc --noEmit`                   | PASS (TypeScript 7.0.2)                                                                                                                                            |
 | `node node_modules/eslint/bin/eslint.js`                                  | PASS: zero errors/warnings; initial unused destructuring warning corrected                                                                                         |
@@ -111,6 +111,12 @@ Four new regressions failed against the original implementation before correctio
 | Build/deployment/production/browser                                       | NOT RUN; no UI change or production approval; build can query a configured database                                                                                |
 
 The pinned pnpm 11.1.3 was obtained and installed the existing lockfile dependencies in the isolated worktree. Sandbox pnpm wrappers subsequently attempted an unavailable Corepack cache download, so verification used the exact installed package CLI equivalents shown above. No manifest/lockfile/dependency version was changed. This is local evidence, not hosted CI.
+
+## Independent review and corrections
+
+The initial independent review found two P2 issues: a later fixture with no response could receive the preceding raw report, and a JSON-null HTTP error could bypass audit capture. It also identified an inherited-property model-allowlist gap. All three were accepted in one correction wave. Each fixture now captures its audit index, invalid JSON envelopes retain safe HTTP diagnostics, and model profiles require own-property membership. Offline regressions reproduce the success-then-no-response, JSON-null429 and inherited-name scenarios. The staging suite passes21/21 and the full skill suite passes55 with13 database skips.
+
+That reviewer hit a model-capacity error before completing its review; the partial findings are retained and are not approval. Complete review of the corrected checkpoint remains required.
 
 ## Remaining uncertainties and production assessment
 

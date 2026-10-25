@@ -57,6 +57,10 @@ export function verifyEvalKey(data: {
 }
 
 export function createEvalFetch(model: string, transport: typeof fetch, signal: AbortSignal) {
+  assert.ok(
+    Object.hasOwn(SKILL_EVAL_CAMPAIGNS, model),
+    'Select one of the two reviewed benchmark candidates',
+  )
   const profile = SKILL_EVAL_CAMPAIGNS[model as keyof typeof SKILL_EVAL_CAMPAIGNS]
   assert.ok(profile, 'Select one of the two reviewed benchmark candidates')
   let requests = 0
@@ -115,10 +119,14 @@ export function createEvalFetch(model: string, transport: typeof fetch, signal: 
       redirect: 'error',
       signal: options.signal ? AbortSignal.any([signal, options.signal]) : signal,
     })
-    const data = await response
+    const value: unknown = await response
       .clone()
       .json()
       .catch(() => ({}))
+    const data = (value !== null && typeof value === 'object' ? value : {}) as {
+      choices?: { message?: { content?: unknown } }[]
+      usage?: { cost?: unknown }
+    }
     const diagnostic = skillDiagnostics(data, response.headers, response.status)
     const content = data.choices?.[0]?.message?.content
     audit.push({
@@ -137,4 +145,11 @@ export function createEvalFetch(model: string, transport: typeof fetch, signal: 
     return response
   }
   return { fetch: guardedFetch, audit, requests: () => requests }
+}
+
+export function fixtureRawContent(
+  campaign: ReturnType<typeof createEvalFetch>,
+  auditIndex: number,
+) {
+  return campaign.audit[auditIndex]?.rawContent ?? null
 }
