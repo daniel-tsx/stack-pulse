@@ -12,11 +12,12 @@ const budget = loadTs(
   { Buffer, AbortSignal },
 )
 
-test('candidate deployment leaves skill scheduling disabled while retaining existing cron jobs', () => {
+test('approved skill schedule retains both existing cron jobs', () => {
   const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
   assert.deepEqual(config.crons, [
     { path: '/api/cron/fetch-releases', schedule: '0 0,12 * * *' },
     { path: '/api/cron/send-digest', schedule: '0 14 * * 1' },
+    { path: '/api/cron/fetch-skill-updates', schedule: '30 0,12 * * *' },
   ])
 })
 const executionBudget = loadTs(

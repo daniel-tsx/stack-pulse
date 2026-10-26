@@ -14,14 +14,15 @@
 {
   "crons": [
     { "path": "/api/cron/fetch-releases", "schedule": "0 0,12 * * *" },
-    { "path": "/api/cron/send-digest", "schedule": "0 14 * * 1" }
+    { "path": "/api/cron/send-digest", "schedule": "0 14 * * 1" },
+    { "path": "/api/cron/fetch-skill-updates", "schedule": "30 0,12 * * *" }
   ]
 }
 ```
 
 Release fetch runs at **00:00 and 12:00 UTC** daily; digest emails send **Mondays 14:00 UTC** (after the Monday fetch). Both authenticated with `CRON_SECRET` bearer header. Digest sending also needs `RESEND_API_KEY` + `DIGEST_FROM_EMAIL` (no-ops with a warning otherwise).
 
-Skill Updates scheduling is intentionally absent pending staging verification and separate migration/deployment/cron-enable approvals. Its proposed 00:30/12:30 UTC schedule, exact checks, budgets and recovery sequence are maintained in the [Skill Updates staging runbook](skill-staging-verification.md).
+Skill Updates is configured for **00:30 and 12:30 UTC** daily (**07:30 and 19:30 Asia/Ho_Chi_Minh**) using the same cron authentication. D1 initialized ten production baselines without AI requests; the operator separately approved adding this D2 schedule. Vercel registers it only when this configuration is deployed to Production; pushing a task branch alone does not activate it. Verify the effective production registration and subsequent runs using the [Skill Updates staging runbook](skill-staging-verification.md).
 
 Release cron also requires a valid `GITHUB_TOKEN`. Manual `GET /api/cron/github-health`,
 protected by the same `CRON_SECRET`, checks it with one read-only GitHub request and no

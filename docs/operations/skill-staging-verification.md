@@ -1,10 +1,14 @@
 # Skill Updates staging verification
 
-**Status:** current · prepared 2026-10-21 · live checks await explicit approval
+**Status:** current · prepared 2026-10-21 · rollout status updated 2026-10-26
+
+## Approved rollout status
+
+Hosted Neon verification and the Luna benchmark completed under their separate approvals. The operator explicitly waived Phase C hosted preview risk and approved D1; production now has ten valid baselines, zero initial events/reports and zero skill AI attempts. The operator subsequently approved adding and pushing the D2 schedule, `30 0,12 * * *`. This configuration still requires a Production deployment and effective registration verification before claiming scheduled activation. The preparation evidence table below describes the original preparation stage, not these later executed gates. The Phase C waiver is a one-time rollout decision, not a permanent relaxation of the staging procedure.
 
 This is the operational source of truth for the remaining integration gates. The [feature contract](../features/agent-skill-updates.md) describes the MVP. An APPROVE code review does not verify hosted persistence, model compatibility, billing or deployment configuration.
 
-## Current evidence and verdict
+## Preparation evidence and verdict (historical)
 
 | Boundary                                | Result                                    | Evidence and remaining uncertainty                                                                                                                                                                                                                                                                                                                                                                                              |
 | --------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

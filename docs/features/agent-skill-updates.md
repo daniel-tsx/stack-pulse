@@ -1,6 +1,6 @@
 # Agent skill updates
 
-**Status:** current (implemented Phase 1; production rollout not performed)
+**Status:** current (implemented; ten production baselines initialized)
 
 StackPulse observes ten curated agent skill directories and publishes revision-based change intelligence. It does not install skills, discover arbitrary sources, infer installed versions, subscribe users, send notifications, or execute downloaded content. Release ingestion and its model default remain independent.
 
@@ -29,7 +29,7 @@ Verification sources: [Ponytail](https://github.com/DietrichGebert/ponytail/tree
 
 Additive migration `0010_tired_doctor_strange.sql` creates `agent_skills` (identity, baseline, last observed commit/tree, check state and lease) and `agent_skill_updates` (immutable before/after commit/tree references, evidence, pending analysis, validated report, telemetry). No existing tables or migration history are changed.
 
-`GET /api/cron/fetch-skill-updates` requires the existing `CRON_SECRET`. Its planned schedule is 00:30 and 12:30 UTC, with a separate 270-second cooperative budget inside a 300-second function. Skill cron registration is currently absent from `vercel.json` until staging, migration and cron-enable approvals are complete. The endpoint never invokes the release cron or notification code. It returns sanitized counters and AI attempt statistics; Vercel logs record completion and categorized failures. There is no separate run-history table or addition to `/status` in Phase 1.
+`GET /api/cron/fetch-skill-updates` requires the existing `CRON_SECRET`. Its approved schedule in `vercel.json` is 00:30 and 12:30 UTC (07:30 and 19:30 Asia/Ho_Chi_Minh), with a separate 270-second cooperative budget inside a 300-second function. The schedule takes effect after a Production deployment containing this configuration; verify registration separately. The endpoint never invokes the release cron or notification code. It returns sanitized counters and AI attempt statistics; Vercel logs record completion and categorized failures. There is no separate run-history table or addition to `/status` in Phase 1.
 
 For each skill, an atomic six-minute database lease coordinates overlapping invocations. Mutable repository metadata and branch HEAD are fetched afresh **after acquiring that skill's lease**; a HEAD observed for an earlier skill cannot supply a later lease's checkpoint. This prevents an older invocation from replaying cached A after a newer invocation records B. A fresh GitHub observation may legitimately move B back to A after a branch rewrite/force-push; commit ancestry is not used as a freshness fence. All event/checkpoint writes and analysis writes check lease ownership. A SQL CTE locks the skill, inserts the transition, and advances the checkpoint in the same statement. A retried/uncertain response cannot silently advance past an absent event. Transition uniqueness is `(skill_id, previous_revision, new_revision)`. A new owner fences stale writers, including an HTTP response held beyond lease expiry; leases are not renewed and exceed the function's maximum lifetime. The fix adds no lock, lease extension or database round trip.
 
