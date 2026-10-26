@@ -90,7 +90,7 @@ export async function interleaveSkillSnapshots(store, { interruptHead = false, e
             [leafB]: [makeEntry('SKILL.md', snapshotHash(6), 'blob')],
           }
           if (trees[sha]) return Response.json({ tree: trees[sha], truncated: false })
-          if (path === `/repos/${sources[0].repository}/`)
+          if (path === `/repos/${sources[0].repository}`)
             return Response.json({ default_branch: branch })
           throw new Error('Unexpected fixture request')
         },

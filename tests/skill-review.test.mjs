@@ -14,6 +14,7 @@ class AiProviderError extends Error {
   }
 }
 const ai = loadTs('src/lib/skill-analysis.ts', {
+  '@/lib/skill-diagnostics': loadTs('src/lib/skill-diagnostics.ts'),
   '@/lib/ai': {},
   '@/lib/ai-resilience': { AiProviderError },
 })
@@ -50,6 +51,59 @@ const modelReport = (change = 'removed', beforeQuote = approval, afterQuote = nu
   justification: 'Advisory assessment.',
   confidence: 'high',
   limitations: [],
+})
+
+test('verified documentation with untested runtime impact does not claim source coverage is missing', () => {
+  const before = 'Keep an index for selective queries.'
+  const added = 'Inspect the query plan before deciding.'
+  const response = modelReport('added', null, added)
+  response.recommendation = 'insufficient_evidence'
+  response.impact = 'unknown'
+  response.confidence = 'low'
+  response.limitations = ['Runtime impact has not been tested.']
+  const result = ai.validateSkillReport(response, evidence(before, `${before} ${added}`))
+  assert.equal(result.recommendation, 'review_before_update')
+  assert.equal(result.impact, 'unknown')
+  assert.doesNotMatch(result.justification, /coverage.*insufficient/i)
+  assert.match(result.limitations.join(' '), /untested|not been tested/)
+  assert.match(ai.SKILL_SYSTEM_PROMPT, /runtime.*insufficient_evidence/i)
+})
+
+test('isolated additions and removals cite their changed span rather than unchanged surrounding text', () => {
+  const before = 'Keep an index for selective queries.'
+  const added = 'Inspect the query plan before deciding.'
+  const after = `${before} ${added}`
+  assert.throws(() =>
+    ai.validateSkillReport(modelReport('added', null, after), evidence(before, after)),
+  )
+  assert.throws(() =>
+    ai.validateSkillReport(modelReport('removed', after, null), evidence(after, before)),
+  )
+  assert.equal(
+    ai.validateSkillReport(modelReport('added', null, added), evidence(before, after))
+      .recommendation,
+    'update_candidate',
+  )
+  const response = modelReport('added', null, added)
+  response.behaviorImpact = [
+    { statement: 'Verification guidance may change.', path, side: 'after', quote: after },
+  ]
+  assert.throws(() => ai.validateSkillReport(response, evidence(before, after)))
+})
+
+test('missing source coverage and absence of verified facts remain insufficient without forced candidate recommendations', () => {
+  for (const source of [
+    evidence(null, null),
+    { ...evidence(approval, 'Other instructions.'), complete: false },
+  ]) {
+    const response = modelReport()
+    response.verifiedChanges = []
+    response.recommendation = 'update_candidate'
+    const result = ai.validateSkillReport(response, source)
+    assert.equal(result.recommendation, 'insufficient_evidence')
+    assert.equal(result.confidence, 'low')
+    assert.equal(result.impact, 'unknown')
+  }
 })
 
 test('older invocation cannot reuse HEAD A after newer invocation checkpoints B', async () => {
@@ -159,6 +213,7 @@ test('a schema-valid fabricated AI behavior claim is rejected rather than becomi
   const analyzer = loadTs(
     'src/lib/skill-analysis.ts',
     {
+      '@/lib/skill-diagnostics': loadTs('src/lib/skill-diagnostics.ts'),
       '@/lib/ai-resilience': { AiProviderError },
       '@/lib/ai': {
         getOpenAI: () => ({

@@ -1,6 +1,6 @@
 # Agent skill updates
 
-**Status:** current (implemented Phase 1; production rollout not performed)
+**Status:** current (implemented; ten production baselines initialized)
 
 StackPulse observes ten curated agent skill directories and publishes revision-based change intelligence. It does not install skills, discover arbitrary sources, infer installed versions, subscribe users, send notifications, or execute downloaded content. Release ingestion and its model default remain independent.
 
@@ -10,18 +10,18 @@ StackPulse observes ten curated agent skill directories and publishes revision-b
 
 The requested paths were checked against GitHub directory listings on 2026-10-21:
 
-| Slug | Repository | Directory |
-| --- | --- | --- |
-| ponytail | DietrichGebert/ponytail | skills/ponytail |
-| ponytail-review | DietrichGebert/ponytail | skills/ponytail-review |
-| grilling | mattpocock/skills | skills/productivity/grilling |
-| grill-me | mattpocock/skills | skills/productivity/grill-me |
-| systematic-debugging | obra/superpowers | skills/systematic-debugging |
-| test-driven-development | obra/superpowers | skills/test-driven-development |
-| supabase-postgres-best-practices | supabase/agent-skills | skills/supabase-postgres-best-practices |
-| vercel-react-best-practices | vercel-labs/agent-skills | skills/react-best-practices |
-| web-design-guidelines | vercel-labs/agent-skills | skills/web-design-guidelines |
-| skill-creator | anthropics/skills | skills/skill-creator |
+| Slug                             | Repository               | Directory                               |
+| -------------------------------- | ------------------------ | --------------------------------------- |
+| ponytail                         | DietrichGebert/ponytail  | skills/ponytail                         |
+| ponytail-review                  | DietrichGebert/ponytail  | skills/ponytail-review                  |
+| grilling                         | mattpocock/skills        | skills/productivity/grilling            |
+| grill-me                         | mattpocock/skills        | skills/productivity/grill-me            |
+| systematic-debugging             | obra/superpowers         | skills/systematic-debugging             |
+| test-driven-development          | obra/superpowers         | skills/test-driven-development          |
+| supabase-postgres-best-practices | supabase/agent-skills    | skills/supabase-postgres-best-practices |
+| vercel-react-best-practices      | vercel-labs/agent-skills | skills/react-best-practices             |
+| web-design-guidelines            | vercel-labs/agent-skills | skills/web-design-guidelines            |
+| skill-creator                    | anthropics/skills        | skills/skill-creator                    |
 
 Verification sources: [Ponytail](https://github.com/DietrichGebert/ponytail/tree/main/skills), [Matt Pocock](https://github.com/mattpocock/skills/tree/main/skills/productivity), [Superpowers](https://github.com/obra/superpowers/tree/main/skills), [Supabase](https://github.com/supabase/agent-skills/tree/main/skills), [Vercel](https://github.com/vercel-labs/agent-skills/tree/main/skills), [Anthropic](https://github.com/anthropics/skills/tree/main/skills/skill-creator). Runtime checks resolve the current default branch; these main-branch links are verification references, not tracking checkpoints.
 
@@ -29,7 +29,7 @@ Verification sources: [Ponytail](https://github.com/DietrichGebert/ponytail/tree
 
 Additive migration `0010_tired_doctor_strange.sql` creates `agent_skills` (identity, baseline, last observed commit/tree, check state and lease) and `agent_skill_updates` (immutable before/after commit/tree references, evidence, pending analysis, validated report, telemetry). No existing tables or migration history are changed.
 
-`GET /api/cron/fetch-skill-updates` requires the existing `CRON_SECRET`. Its planned schedule is 00:30 and 12:30 UTC, with a separate 270-second cooperative budget inside a 300-second function. Skill cron registration is currently absent from `vercel.json` until staging, migration and cron-enable approvals are complete. The endpoint never invokes the release cron or notification code. It returns sanitized counters and AI attempt statistics; Vercel logs record completion and categorized failures. There is no separate run-history table or addition to `/status` in Phase 1.
+`GET /api/cron/fetch-skill-updates` requires the existing `CRON_SECRET`. Its approved schedule in `vercel.json` is 00:30 and 12:30 UTC (07:30 and 19:30 Asia/Ho_Chi_Minh), with a separate 270-second cooperative budget inside a 300-second function. The schedule takes effect after a Production deployment containing this configuration; verify registration separately. The endpoint never invokes the release cron or notification code. It returns sanitized counters and AI attempt statistics; Vercel logs record completion and categorized failures. There is no separate run-history table or addition to `/status` in Phase 1.
 
 For each skill, an atomic six-minute database lease coordinates overlapping invocations. Mutable repository metadata and branch HEAD are fetched afresh **after acquiring that skill's lease**; a HEAD observed for an earlier skill cannot supply a later lease's checkpoint. This prevents an older invocation from replaying cached A after a newer invocation records B. A fresh GitHub observation may legitimately move B back to A after a branch rewrite/force-push; commit ancestry is not used as a freshness fence. All event/checkpoint writes and analysis writes check lease ownership. A SQL CTE locks the skill, inserts the transition, and advances the checkpoint in the same statement. A retried/uncertain response cannot silently advance past an absent event. Transition uniqueness is `(skill_id, previous_revision, new_revision)`. A new owner fences stale writers, including an HTTP response held beyond lease expiry; leases are not renewed and exceed the function's maximum lifetime. The fix adds no lock, lease extension or database round trip.
 
@@ -41,19 +41,25 @@ Tree JSON is capped at 2 MB/15,000 entries; truncated listings fail explicitly. 
 
 References: [GitHub tree API and truncation](https://docs.github.com/en/rest/git/trees#get-a-tree).
 
+Repository metadata uses the canonical `/repos/{owner}/{repo}` endpoint without a trailing slash. GitHub returns 404 for the slash-suffixed form even for an accessible public repository. The bounded JSON transport accepts the repository root as well as repository subresources; external URL rejection is preserved. A regression exercises observation through the actual transport with the slash-suffixed response rejected.
+
 ## Structured analyzer and trust
+
+Phase B benchmark hardening preserves the existing report shape and ingestion/persistence contracts. Complete comparative source facts are separate from untested runtime implications: a contradictory model `insufficient_evidence` with verified complete source facts becomes conservative manual review, never an automatic update candidate. Missing/incomplete evidence or no verified facts still yields insufficient evidence. Isolated insertions/removals long enough for a quotation must cite their changed span; replacements and very short edits retain necessary context. Strict JSON Schema, Zod and human inference review remain required.
+
+Skill telemetry may additionally contain bounded sanitized diagnostics (HTTP status, typed error code, parsed retry delay, request/generation identifiers, provider, routing attempt count and BYOK flag). Raw provider errors, request bodies and arbitrary metadata are excluded. SDK conversion may discard top-level error routing metadata; the evaluation fetch guard captures it before conversion. Retry counts, execution budgets, leases/checkpoints and stored report shape are unchanged. See [benchmark readiness](../audits/skill-phase-b-benchmark-readiness.md); no model/provider has been selected for production by offline verification.
 
 `skill-analysis.ts` supplies a separate system prompt, strict JSON Schema and strict Zod contract. GitHub content is serialized only in the untrusted user message; no tools are exposed. Nothing is downloaded for installation or execution. UI renders text/quotes through React escaping, never source HTML or model-generated links.
 
 Reports contain a summary; verified source changes; potential capability, behavior and security/operational findings; impact; recommendation; confidence; justification; and limitations. The model's `verifiedChanges` contract is now `{ path, change, beforeQuote, afterQuote }`, with nullable quotes and change categories `added`, `removed`, `modified`, `renamed`, `mode_changed`. Added/removed text must occur in the cited complete side and be absent from the opposite complete side; a modified text claim needs distinct before/after quotes satisfying both tests. Unchanged approval instructions or surrounding context cannot prove a removal, even if a typo elsewhere changed the file. Missing/omitted sides do not prove absence. Incomplete text samples cannot produce verified text findings. Rename and mode facts must match collected file metadata.
 
-The server derives the displayed verified statements (for example, "Source text removed.") and public summary from validated source facts, instead of accepting model-written behavioral conclusions as verified changes. It derives public justification from the final recommendation policy. Free-form model summary/justification therefore cannot bypass citation checks in feed cards, metadata or the report. Stored reports keep the existing display fields and add comparative quote metadata; JSONB storage needs no migration. Model-written capability/behavior/security findings remain separate inferences. Each must cite a verified changed file and text absent from the opposite revision, or be anchored to an actual rename/mode change. This permits indirect implications from a changed trigger or script while rejecting unchanged context as sole evidence. Any inferred finding caps confidence at medium and requires `review_before_update`, regardless of which model-selected category contains it. Incomplete evidence, no verified findings, or an explicit insufficient assessment forces `insufficient_evidence`, unknown impact and low confidence.
+The server derives the displayed verified statements (for example, "Source text removed.") and public summary from validated source facts, instead of accepting model-written behavioral conclusions as verified changes. It derives public justification from the final recommendation policy. Free-form model summary/justification therefore cannot bypass citation checks in feed cards, metadata or the report. Stored reports keep the existing display fields and add comparative quote metadata; JSONB storage needs no migration. Model-written capability/behavior/security findings remain separate inferences. Each must cite a verified changed file and text absent from the opposite revision, or be anchored to an actual rename/mode change. This permits indirect implications from a changed trigger or script while rejecting unchanged context as sole evidence. Any inferred finding caps confidence at medium and requires `review_before_update`, regardless of which model-selected category contains it. Missing/incomplete comparative coverage or no verified findings forces `insufficient_evidence`, unknown impact and low confidence. A contradictory model insufficient assessment with complete verified source facts instead requires conservative review; it never becomes an automatic update candidate.
 
 Mandatory script review examines **both** `path` and `previousPath`, plus both executable modes. A non-executable `scripts/check.sh` renamed into `references/check.sh` still requires review, as do moves into scripts, script additions/deletions, and executable-mode changes. Incomplete coverage remains an insufficient assessment rather than a low-risk recommendation.
 
 These are conservative substring comparisons, not a semantic instruction interpreter or general-purpose diff engine. Ambiguous duplicated/moved text may be rejected rather than guessed. Comparative citations establish source changes, not the correctness of inferred behavior; a hypothesis citing a changed typo may still be semantically wrong, but cannot become a verified fact or an automatic low-risk recommendation. Human review remains necessary. Reports are advisory and do not claim environment testing or host compatibility without source evidence. Completed reports generated under the earlier validator are not rewritten automatically; use fresh staging data or review/reanalyze those reports separately before rollout.
 
-`SKILL_UPDATES_MODEL` defaults to `deepseek/deepseek-v4-flash-0731`. `OPENROUTER_MODEL` stays `deepseek/deepseek-chat`. Requests retain `strict: true` and `provider.require_parameters: true`; unsupported routing fails instead of downgrading to free-form JSON. Output is capped at 3,000 tokens. Reasoning is disabled for the two reviewed newer candidates. The shared AI execution context bounds retries to three SDK attempts, serializes requests, honors capped cooldowns and blocks authentication/credit failures. There is no expensive-model escalation.
+`SKILL_UPDATES_MODEL` defaults to `deepseek/deepseek-v4-flash-0731`. `OPENROUTER_MODEL` stays `deepseek/deepseek-chat`. Requests retain `strict: true` and `provider.require_parameters: true`; unsupported routing fails instead of downgrading to free-form JSON. Output is capped at 3,000 tokens. Flash sends `reasoning.enabled: false`; Luna sends `reasoning.effort: none`. Both omit temperature. The shared AI execution context bounds retries to three SDK attempts, serializes requests, honors capped cooldowns and blocks authentication/credit failures. There is no expensive-model escalation.
 
 Current endpoint metadata advertises structured outputs for [DeepSeek V4 Flash 0731](https://openrouter.ai/api/v1/models/deepseek/deepseek-v4-flash-0731/endpoints) and [GPT-6 Luna](https://openrouter.ai/api/v1/models/openai/gpt-6-luna/endpoints); this is not a successful live schema benchmark. Routing checks remain enforced at request time. See [OpenRouter structured output requirements](https://openrouter.ai/docs/guides/features/structured-outputs).
 
@@ -103,7 +109,7 @@ pnpm skills:eval --plan-live
 pnpm skills:verify:neon
 ```
 
-Candidates are `deepseek/deepseek-chat`, `deepseek/deepseek-v4-flash-0731`, and `openai/gpt-6-luna`. Logs include schema result, recommendation match, report, actual usage/cost and latency. Manually score behavior identification, false positives, unsupported assertions, evidence relevance and recommendation usefulness before accepting a report. Compute cost per accepted report as total known reported cost across successful and failed calls divided by human-accepted reports; flag unknown charges separately. No paid benchmark was performed during implementation and no release-model migration is recommended from offline contract tests alone.
+The two benchmark candidates are `deepseek/deepseek-v4-flash-0731` on DigitalOcean and `openai/gpt-6-luna` on OpenAI standard tier, each requiring separate approval for six fixtures. Logs retain raw and normalized reports/recommendation diagnostics, the same four-item quality rubric, safe provider diagnostics, actual usage/cost and latency. Manually score behavior identification, false positives, unsupported assertions, evidence relevance and recommendation usefulness before accepting a report. Compute cost per accepted report as total known reported cost across successful and failed calls divided by human-accepted reports; flag unknown charges separately. No paid benchmark was performed during implementation and no release-model migration is recommended from offline contract tests alone.
 
 With ten skills across six repositories, an unchanged poll uses roughly 43 GitHub calls before retries (20 fresh metadata/HEAD requests plus shared immutable directory/skill trees); two runs/day are roughly 86 calls/day. The freshness fix costs eight extra requests/poll compared with unsafe mutable caching across skills, while preserving all immutable-content sharing and unchanged-tree AI skips. Changes add up to two recursive subtree listings and bounded blob reads; identical blobs are memoized. Worst-case samples can require up to 200 blob requests per event, although the 24,000-character budget usually stops much earlier. Four jobs/run and three attempts/job cap AI dispatch at 12 attempts/run (24/day), with a 3,000-token output ceiling per attempt. GitHub and execution limits may defer work before those ceilings. Initial baselines and unchanged directories incur zero model cost.
 
@@ -123,20 +129,20 @@ To add a skill later, manually review its repository/path, add one explicit cata
 
 ## Initial MVP verification record · 2026-10-21 (historical)
 
-| Check | Actual outcome |
-| --- | --- |
-| `pnpm lint`, `pnpm typecheck` | Passed |
-| `pnpm test:skills`, isolated `SKILL_TEST_DATABASE_URL` set | 23 passed, including six real PostgreSQL integration tests |
-| `pnpm test:cron` | 118 passed |
-| `pnpm test:theme` | 10 passed |
-| `pnpm test:votes`, isolated `VOTE_TEST_DATABASE_URL` set | 19 passed; one optional pre-existing HTTP test skipped |
-| `pnpm skills:eval` | Six offline contract fixtures passed; no live model quality measurement |
-| `pnpm db:generate` after final schema | No additional schema changes; snapshot matches migration |
-| Actual `next build` through ignored isolated runtime harness | Passed, all 44 pages generated; configured remote database was blocked |
-| Next.js `/_next/mcp` compilation/error probes | No compilation, configuration or browser/session errors |
-| Browser + HTTP smoke | Public index/history/report access, canonical metadata, pending/failed/complete states, escaped injection text, revision-correct rename URL, unknown/mismatched HTTP 404 and unauthenticated cron 401 verified |
-| Mobile theme/accessibility | 390px Dark and Light directory inspected; Light report has no horizontal overflow and axe reports zero WCAG A/AA violations after fixing an inline-link underline |
-| `git diff --check` | Passed |
+| Check                                                        | Actual outcome                                                                                                                                                                                                 |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`, `pnpm typecheck`                                | Passed                                                                                                                                                                                                         |
+| `pnpm test:skills`, isolated `SKILL_TEST_DATABASE_URL` set   | 23 passed, including six real PostgreSQL integration tests                                                                                                                                                     |
+| `pnpm test:cron`                                             | 118 passed                                                                                                                                                                                                     |
+| `pnpm test:theme`                                            | 10 passed                                                                                                                                                                                                      |
+| `pnpm test:votes`, isolated `VOTE_TEST_DATABASE_URL` set     | 19 passed; one optional pre-existing HTTP test skipped                                                                                                                                                         |
+| `pnpm skills:eval`                                           | Six offline contract fixtures passed; no live model quality measurement                                                                                                                                        |
+| `pnpm db:generate` after final schema                        | No additional schema changes; snapshot matches migration                                                                                                                                                       |
+| Actual `next build` through ignored isolated runtime harness | Passed, all 44 pages generated; configured remote database was blocked                                                                                                                                         |
+| Next.js `/_next/mcp` compilation/error probes                | No compilation, configuration or browser/session errors                                                                                                                                                        |
+| Browser + HTTP smoke                                         | Public index/history/report access, canonical metadata, pending/failed/complete states, escaped injection text, revision-correct rename URL, unknown/mismatched HTTP 404 and unauthenticated cron 401 verified |
+| Mobile theme/accessibility                                   | 390px Dark and Light directory inspected; Light report has no horizontal overflow and axe reports zero WCAG A/AA violations after fixing an inline-link underline                                              |
+| `git diff --check`                                           | Passed                                                                                                                                                                                                         |
 
 All SQL and runtime data verification used a disposable loopback PostgreSQL 18 database. Runtime tests used a test-only Neon HTTP transport shim; this is not a live Neon service test. The first empty-database build required adding an existing stack fixture for its `generateStaticParams`, then passed. Real OAuth, deployed Vercel Cron behavior, paid OpenRouter responses and production migrations were not exercised.
 
@@ -148,27 +154,27 @@ Changed areas: the two-table schema and `0010` SQL/snapshot/journal; `skill-cata
 
 A subsequent independent review identified three defects that the initial tests missed. All three were reproduced with failing deterministic regressions before correction:
 
-| Finding | Root cause | Correction |
-| --- | --- | --- |
-| P1 stale snapshot reversal | Repository metadata/HEAD were cached across different per-skill leases within one invocation | Fetch both mutable values after each skill's lease acquisition; retain SHA tree/blob caching and existing atomic/token-checked persistence |
-| P2 unsupported verified behavior | A quote's presence in one revision was treated as proof of a change | Comparative, complete-side text checks; server-derived verified facts, summary and justification; inferred claims remain separate and require review |
-| P2 renamed script bypass | Mandatory script review inspected only the current path | Inspect both current/previous paths and executable modes; preserve conservative addition/deletion handling |
+| Finding                          | Root cause                                                                                   | Correction                                                                                                                                           |
+| -------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1 stale snapshot reversal       | Repository metadata/HEAD were cached across different per-skill leases within one invocation | Fetch both mutable values after each skill's lease acquisition; retain SHA tree/blob caching and existing atomic/token-checked persistence           |
+| P2 unsupported verified behavior | A quote's presence in one revision was treated as proof of a change                          | Comparative, complete-side text checks; server-derived verified facts, summary and justification; inferred claims remain separate and require review |
+| P2 renamed script bypass         | Mandatory script review inspected only the current path                                      | Inspect both current/previous paths and executable modes; preserve conservative addition/deletion handling                                           |
 
 The actual ingestion + GitHub transport/detector path is tested with deterministic HTTP responses, first using in-memory persistence and then the production Drizzle store against isolated PostgreSQL. An older run observes A on its first skill and pauses before leasing a second skill; a newer run checkpoints B; resuming the older run must leave B intact with exactly two real A → B transitions and no false B → A. A fresh default-branch rewrite to A is separately accepted. Another SQL scenario holds an A HEAD response beyond lease expiration, lets the new owner persist B, then resumes the obsolete owner and confirms B survives. Existing interruption, lost-owner, atomic rollback and retry tests remain in the suite.
 
 Evidence regressions cover typo-only changes with unchanged approvals, genuine approval removal, added/modified triggers, unchanged surrounding context, missing/truncated evidence, schema-valid fabricated AI conclusions, both script rename directions, script additions/deletions and executable modes. The fresh reviewer also found two alternative routes around the initial correction: free-form summary/justification and moving an inference into a different category. Both are now covered by regressions and fixed by server-derived public prose and category-independent manual review.
 
-| Verification | Outcome |
-| --- | --- |
-| `pnpm lint` | PASS |
-| `pnpm typecheck` | PASS |
-| `pnpm test:skills` with isolated `SKILL_TEST_DATABASE_URL` | PASS: 38 tests, including eight actual PostgreSQL integration tests; no skips |
-| `pnpm test:cron` | PASS: 118 release-ingestion tests |
-| `pnpm skills:eval` | PASS: six offline fixtures after adapting them to comparative evidence; no model calls |
-| Actual `next build` via existing ignored local runtime harness | PASS: all 44 pages generated with remote Neon blocked |
-| `git diff --check` | PASS |
-| Fresh independent read-only re-review | APPROVE: 30 offline tests, six evaluation fixtures and adversarial probes rerun independently; no remaining actionable scoped findings |
-| Live Neon HTTP concurrency/cancellation, deployed cron, paid provider contract/quality evaluation, hosted CI | NOT RUN |
+| Verification                                                                                                 | Outcome                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`                                                                                                  | PASS                                                                                                                                   |
+| `pnpm typecheck`                                                                                             | PASS                                                                                                                                   |
+| `pnpm test:skills` with isolated `SKILL_TEST_DATABASE_URL`                                                   | PASS: 38 tests, including eight actual PostgreSQL integration tests; no skips                                                          |
+| `pnpm test:cron`                                                                                             | PASS: 118 release-ingestion tests                                                                                                      |
+| `pnpm skills:eval`                                                                                           | PASS: six offline fixtures after adapting them to comparative evidence; no model calls                                                 |
+| Actual `next build` via existing ignored local runtime harness                                               | PASS: all 44 pages generated with remote Neon blocked                                                                                  |
+| `git diff --check`                                                                                           | PASS                                                                                                                                   |
+| Fresh independent read-only re-review                                                                        | APPROVE: 30 offline tests, six evaluation fixtures and adversarial probes rerun independently; no remaining actionable scoped findings |
+| Live Neon HTTP concurrency/cancellation, deployed cron, paid provider contract/quality evaluation, hosted CI | NOT RUN                                                                                                                                |
 
 Fix scope: `src/lib/skill-github.ts`, `src/lib/skill-ingestion.ts`, `src/lib/skill-analysis.ts`, `scripts/evaluate-skill-updates.ts`, `tests/skill-core.test.mjs`, `tests/skill-db.test.mjs`, new `tests/skill-review.test.mjs` and `tests/skill-snapshot-helpers.mjs`, and this existing feature document. No schema migration, dependency, catalog expansion, release-ingestion behavior change or release-model default change was needed.
 

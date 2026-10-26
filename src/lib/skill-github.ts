@@ -38,7 +38,7 @@ export function createSkillGithub(context: GithubFetchContext) {
     // acquired. Only SHA-addressed trees and blobs are shared across observations.
     const repo = z
       .object({ default_branch: z.string().min(1).max(256) })
-      .parse(await requestGithubJson(`/repos/${skill.repository}/`, context))
+      .parse(await requestGithubJson(`/repos/${skill.repository}`, context))
     const head = z
       .object({ sha: hash, commit: z.object({ tree: z.object({ sha: hash }) }) })
       .parse(

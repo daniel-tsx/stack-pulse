@@ -80,6 +80,7 @@ function analyzer(
   return loadTs(
     'src/lib/skill-analysis.ts',
     {
+      '@/lib/skill-diagnostics': loadTs('src/lib/skill-diagnostics.ts'),
       '@/lib/ai': { getOpenAI: () => ({ chat: { completions: { create } } }) },
       '@/lib/ai-resilience': resilience,
     },
@@ -136,7 +137,7 @@ test('subtree diff tracks instructions, references, scripts, additions, deletion
 function detector(overrides = {}) {
   const calls = []
   const responses = {
-    [`/repos/${source.repository}/`]: { default_branch: 'main' },
+    [`/repos/${source.repository}`]: { default_branch: 'main' },
     [`/repos/${source.repository}/commits/main`]: { sha: h(9), commit: { tree: { sha: h(1) } } },
     [`/repos/${source.repository}/git/trees/${h(1)}`]: node([
       entry('skills', h(2), '040000', 'tree'),
@@ -168,6 +169,55 @@ function detector(overrides = {}) {
   return { api: loaded.createSkillGithub({}), calls }
 }
 
+test('canonical repository metadata reaches the GitHub transport without a trailing slash', async () => {
+  const requests = []
+  const responses = {
+    [`/repos/${source.repository}`]: { default_branch: 'main' },
+    [`/repos/${source.repository}/commits/main`]: { sha: h(9), commit: { tree: { sha: h(1) } } },
+    [`/repos/${source.repository}/git/trees/${h(1)}`]: node([
+      entry('skills', h(2), '040000', 'tree'),
+    ]),
+    [`/repos/${source.repository}/git/trees/${h(2)}`]: node([
+      entry('ponytail', h(3), '040000', 'tree'),
+    ]),
+    [`/repos/${source.repository}/git/trees/${h(3)}`]: node([entry('SKILL.md', h(5))]),
+  }
+  const transport = loadTs(
+    'src/lib/github.ts',
+    { '@/lib/execution-budget': budget },
+    {
+      Buffer,
+      AbortSignal,
+      process: { env: { GITHUB_TOKEN: 'synthetic-token' } },
+      fetch: async (url, options) => {
+        assert.equal(options.headers.Authorization, 'Bearer synthetic-token')
+        assert.equal(options.redirect, 'manual')
+        requests.push(new URL(url).pathname)
+        const body = responses[new URL(url).pathname]
+        return Response.json(body ?? { message: 'Not Found' }, { status: body ? 200 : 404 })
+      },
+    },
+  )
+  const github = loadTs(
+    'src/lib/skill-github.ts',
+    { '@/lib/skill-catalog': catalog, '@/lib/github': transport },
+    { Buffer },
+  ).createSkillGithub(transport.createGithubFetchContext())
+  const observation = await github.observe(source)
+  assert.equal(observation.revision, h(9))
+  assert.equal(observation.tree, h(3))
+  assert.equal(observation.hasSkillFile, true)
+  assert.deepEqual(requests, Object.keys(responses))
+  const dispatched = requests.length
+  for (const invalid of ['https://attacker.test/', '//attacker.test/', '/repos/owner']) {
+    await assert.rejects(
+      transport.requestGithubJson(invalid, { authFailure: null }),
+      (error) => error.category === 'GITHUB_REPOSITORY',
+    )
+  }
+  assert.equal(requests.length, dispatched)
+})
+
 test('skills refresh mutable repository/HEAD requests but share immutable tree requests', async () => {
   const { api, calls } = detector()
   const [a, b] = await Promise.all([api.observe(source), api.observe(catalog.SKILL_CATALOG[1])])
@@ -175,7 +225,7 @@ test('skills refresh mutable repository/HEAD requests but share immutable tree r
   assert.equal(a.tree, h(3))
   assert.equal(b.tree, h(4))
   assert.equal(calls.filter((path) => path.endsWith('/commits/main')).length, 2)
-  assert.equal(calls.filter((path) => path === `/repos/${source.repository}/`).length, 2)
+  assert.equal(calls.filter((path) => path === `/repos/${source.repository}`).length, 2)
   assert.equal(calls.filter((path) => path.endsWith(`/git/trees/${h(2)}`)).length, 1)
 })
 
