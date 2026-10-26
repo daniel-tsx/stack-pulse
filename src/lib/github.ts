@@ -177,7 +177,7 @@ export async function verifyGithubAuthentication(): Promise<void> {
 
 /** Bounded JSON transport for curated skill trees/blobs; shares auth and retry policy. */
 export async function requestGithubJson(path: string, context: GithubFetchContext, limit = 2_000_000): Promise<unknown> {
-  if (!/^\/repos\/[\w.-]+\/[\w.-]+\//.test(path)) throw new GithubApiError('GITHUB_REPOSITORY')
+  if (!/^\/repos\/[\w.-]+\/[\w.-]+(?:\/|$)/.test(path)) throw new GithubApiError('GITHUB_REPOSITORY')
   const res = await requestGithub(path, context)
   const reader = res.body?.getReader()
   if (!reader) throw new GithubApiError('GITHUB_UPSTREAM')

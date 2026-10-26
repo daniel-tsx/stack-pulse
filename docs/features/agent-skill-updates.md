@@ -41,6 +41,8 @@ Tree JSON is capped at 2 MB/15,000 entries; truncated listings fail explicitly. 
 
 References: [GitHub tree API and truncation](https://docs.github.com/en/rest/git/trees#get-a-tree).
 
+Repository metadata uses the canonical `/repos/{owner}/{repo}` endpoint without a trailing slash. GitHub returns 404 for the slash-suffixed form even for an accessible public repository. The bounded JSON transport accepts the repository root as well as repository subresources; external URL rejection is preserved. A regression exercises observation through the actual transport with the slash-suffixed response rejected.
+
 ## Structured analyzer and trust
 
 Phase B benchmark hardening preserves the existing report shape and ingestion/persistence contracts. Complete comparative source facts are separate from untested runtime implications: a contradictory model `insufficient_evidence` with verified complete source facts becomes conservative manual review, never an automatic update candidate. Missing/incomplete evidence or no verified facts still yields insufficient evidence. Isolated insertions/removals long enough for a quotation must cite their changed span; replacements and very short edits retain necessary context. Strict JSON Schema, Zod and human inference review remain required.
