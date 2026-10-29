@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalShell title="terms" slug="legal/terms" updatedAt="May 2026">
+    <LegalShell title="Terms" slug="legal/terms" updatedAt="May 2026">
       <p>
         StackPulse is a non-profit, open-source side project. It&apos;s offered to the developer
         community for free, with no warranty. By using it you agree to a few common-sense things

@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft01Icon, Link01Icon } from 'hugeicons-react'
+import { Link01Icon } from 'hugeicons-react'
 
-import { Logo } from '@/components/logo'
 import { ReleaseAuth } from '@/components/releases/release-auth'
 import { ReleaseNotes } from '@/components/releases/release-notes'
 import { ReleaseVote } from '@/components/releases/release-vote'
-import { ThemeSwitcher } from '@/components/theme-switcher'
+import { Badge, FileCard, PageIntro } from '@/components/review/review-ui'
+import { SiteFooter } from '@/components/site/site-footer'
+import { SiteHeader } from '@/components/site/site-header'
 import { getPublicRelease } from '@/lib/public-releases'
 
 type Props = { params: Promise<{ slug: string; releaseId: string }> }
@@ -53,87 +53,90 @@ export default async function ReleasePage({ params }: Props) {
 
   return (
     <div className="relative flex-1">
-      <header className="relative z-20 mx-auto flex h-14 max-w-5xl items-center justify-between border-b border-line/60 px-4 sm:px-6">
-        <Link href="/" className="transition-opacity hover:opacity-80">
-          <Logo size="md" />
-        </Link>
-        <nav aria-label="Account and appearance" className="flex items-center gap-3 sm:gap-4">
-          <ThemeSwitcher />
-          <ReleaseAuth returnPath={returnPath} />
-        </nav>
-      </header>
-      <main className="relative z-10 mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-        <Link
-          href={`/stacks/${tech.slug}`}
-          className="inline-flex items-center gap-2 font-mono text-[12px] text-dust transition-colors hover:text-lime"
-        >
-          <ArrowLeft01Icon className="h-3.5 w-3.5" aria-hidden="true" /> all {tech.name} releases
-        </Link>
-        <article className="mt-8 min-w-0">
-          <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] text-dust">
-            <span className="text-lime"># {tech.slug}/release</span>
-            {release.publishedAt && (
-              <time dateTime={release.publishedAt.toISOString()}>
-                {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(
-                  release.publishedAt,
+      <SiteHeader
+        active="stacks"
+        width="max-w-5xl"
+        account={<ReleaseAuth returnPath={returnPath} />}
+      />
+      <main className="relative z-10 mx-auto max-w-5xl px-5 py-12 sm:px-6 sm:py-14">
+        <article className="min-w-0">
+          <PageIntro
+            path={[
+              { label: 'stackpulse', href: '/' },
+              { label: 'stacks', href: '/stacks' },
+              { label: tech.slug, href: `/stacks/${tech.slug}` },
+              { label: release.version },
+            ]}
+            state={release.isPrerelease ? { label: 'prerelease', tone: 'prerelease' } : undefined}
+            title={
+              <>
+                {tech.name} <span className="text-amber">{release.version}</span>
+              </>
+            }
+            lede={
+              <>
+                {release.title && release.title !== release.version && (
+                  <p className="break-words font-mono text-[17px] text-ink">{release.title}</p>
                 )}
-              </time>
-            )}
-          </div>
-          <h1 className="mt-4 break-words font-mono text-3xl font-semibold tracking-tight text-ink sm:text-5xl">
-            {tech.name} <span className="text-amber">{release.version}</span>
-          </h1>
-          {release.title && release.title !== release.version && (
-            <p className="mt-3 break-words font-mono text-lg text-dust">{release.title}</p>
-          )}
-          <div className="mt-5 flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-wider">
-            {release.importanceLevel && (
-              <span className="rounded border border-ruling bg-shade px-2 py-1 text-ink">
-                importance: {release.importanceLevel}
-              </span>
-            )}
-            {release.releaseSignals.map((signal) => (
-              <span
-                key={signal}
-                className="rounded border border-cyan/30 bg-cyan/10 px-2 py-1 text-cyan"
-              >
-                {signal}
-              </span>
-            ))}
-            {release.isPrerelease && (
-              <span className="rounded border border-violet/30 bg-violet/10 px-2 py-1 text-violet">
-                prerelease
-              </span>
-            )}
-          </div>
-          <div className="mt-8 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start">
-            <div className="frame min-w-0 break-words px-5 pb-5 pt-3 sm:px-6">
-              <ReleaseNotes release={release} />
-              {release.rawReleaseUrl && (
-                <a
-                  href={release.rawReleaseUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-6 inline-flex items-center gap-2 font-mono text-[12px] text-lime hover:underline"
-                >
-                  <Link01Icon className="h-3.5 w-3.5" aria-hidden="true" /> view source on github{' '}
-                  <span aria-hidden="true">↗</span>
-                </a>
-              )}
-              {!release.summary &&
-                !release.impactSummary &&
-                !release.recommendedAction &&
-                !release.releaseSignals.length &&
-                !release.codeSnippet && (
-                  <p className="mt-4 text-sm text-dust">
-                    Detailed notes have not been indexed for this release yet.
+                {release.publishedAt && (
+                  <p className="mt-1 font-mono text-[13px]">
+                    Published{' '}
+                    <time dateTime={release.publishedAt.toISOString()}>
+                      {new Intl.DateTimeFormat('en-US', {
+                        dateStyle: 'medium',
+                        timeZone: 'UTC',
+                      }).format(release.publishedAt)}
+                    </time>
                   </p>
                 )}
-            </div>
+              </>
+            }
+          />
+          <div className="mt-10 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start">
+            <FileCard
+              path={`${tech.slug}/${release.version}/review.md`}
+              meta={
+                <span className="flex flex-wrap items-center gap-1.5">
+                  {release.importanceLevel && (
+                    <Badge tone={release.importanceLevel}>{release.importanceLevel}</Badge>
+                  )}
+                  {release.releaseSignals.map((signal) => (
+                    <Badge key={signal} tone={signal}>
+                      {signal}
+                    </Badge>
+                  ))}
+                </span>
+              }
+            >
+              <div className="min-w-0 break-words px-5 pb-6 pt-2 sm:px-6">
+                <ReleaseNotes release={release} />
+                {release.rawReleaseUrl && (
+                  <a
+                    href={release.rawReleaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-6 inline-flex items-center gap-2 font-mono text-[12px] text-lime underline-offset-4 hover:underline"
+                  >
+                    <Link01Icon className="h-3.5 w-3.5" aria-hidden="true" /> Source on GitHub{' '}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                )}
+                {!release.summary &&
+                  !release.impactSummary &&
+                  !release.recommendedAction &&
+                  !release.releaseSignals.length &&
+                  !release.codeSnippet && (
+                    <p className="mt-4 text-sm text-dust">
+                      Detailed notes have not been indexed for this release yet.
+                    </p>
+                  )}
+              </div>
+            </FileCard>
             <ReleaseVote releaseId={release.id} returnPath={returnPath} />
           </div>
         </article>
       </main>
+      <SiteFooter width="max-w-5xl" />
     </div>
   )
 }

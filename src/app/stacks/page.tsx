@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight01Icon, Link01Icon } from 'hugeicons-react'
+import { Link01Icon } from 'hugeicons-react'
 
 import { DigestSignupForm } from '@/components/landing/digest-signup-form'
-import { Logo } from '@/components/logo'
-import { ThemeSwitcher } from '@/components/theme-switcher'
+import { FileCard, PageIntro, StatGrid } from '@/components/review/review-ui'
+import { SiteFooter } from '@/components/site/site-footer'
+import { SiteHeader } from '@/components/site/site-header'
 import { getPublicStackIndex, type PublicStackIndexItem } from '@/lib/public-stacks'
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -61,171 +62,121 @@ export default async function StacksPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between relative z-20 border-b border-line/60">
-        <Link href="/" className="hover:opacity-80 transition-opacity">
-          <Logo size="md" />
-        </Link>
-        <nav className="flex items-center gap-2 sm:gap-4 font-mono text-[11px] text-fade">
-          <Link href="/" className="hover:text-dust transition-colors">
-            home
-          </Link>
-          <Link href="/skills" className="hover:text-lime transition-colors">
-            skills
-          </Link>
-          <Link href="/sign-in" className="text-lime hover:underline">
-            track stack
-          </Link>
-          <ThemeSwitcher />
-        </nav>
-      </header>
+      <SiteHeader active="stacks" />
 
-      <main className="relative z-10 mx-auto max-w-7xl px-6 py-14">
-        <div className="font-mono text-[11px] text-fade tracking-[0.2em] uppercase flex flex-wrap items-center gap-3">
-          <span className="text-lime">§</span>
-          <span>stacks</span>
-          <span className="text-mute">·</span>
-          <span>{stacks.length} tracked</span>
-        </div>
-
-        <div className="mt-6 grid gap-10 lg:grid-cols-[1fr_360px] lg:items-start">
-          <div>
-            <h1 className="font-mono text-3xl font-bold tracking-tight text-ink sm:text-5xl">
-              Framework release notes, breaking changes, and upgrade notes
-              <span className="text-lime">.</span>
-            </h1>
-            <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-dust">
-              Browse AI-distilled GitHub release feeds for common developer stacks. Each stack page
-              collects source-linked release notes, risky changes, deprecations, and migration
-              signals from the projects developers ship with.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line">
-            <Stat label="active" value={activeStacks} tone="lime" />
-            <Stat label="releases" value={totalReleases} tone="ink" />
-            <Stat label="security" value={totalSecurity} tone="rose" />
-            <Stat label="migrations" value={totalMigrations} tone="cyan" />
-          </div>
-          <DigestSignupForm source="stacks:index" />
-        </div>
+      <main className="relative z-10 mx-auto max-w-6xl px-5 py-12 sm:px-6 sm:py-14">
+        <PageIntro
+          path={[{ label: 'stackpulse', href: '/' }, { label: 'stacks' }]}
+          state={{ label: `${stacks.length} tracked`, tone: 'open' }}
+          title="Framework release notes, breaking changes, and upgrade notes"
+          lede="Browse AI-distilled GitHub release feeds for common developer stacks. Each stack page collects source-linked release notes, risky changes, deprecations, and migration signals from the projects developers ship with."
+          aside={
+            <div className="grid gap-4">
+              <FileCard path="stacks/summary">
+                <StatGrid
+                  stats={[
+                    { label: 'active', value: activeStacks, tone: 'lime' },
+                    { label: 'releases', value: totalReleases },
+                    { label: 'security', value: totalSecurity, tone: 'rose' },
+                    { label: 'migrations', value: totalMigrations, tone: 'cyan' },
+                  ]}
+                />
+              </FileCard>
+              <DigestSignupForm source="stacks:index" />
+            </div>
+          }
+        />
 
         <section className="mt-16" aria-labelledby="stack-directory">
-          <div className="flex items-center gap-4">
-            <h2
-              id="stack-directory"
-              className="font-mono text-[11px] uppercase tracking-[0.25em] text-fade"
-            >
-              §&nbsp;stack_directory
-            </h2>
-            <div className="h-px flex-1 bg-line" />
-            <span className="font-mono text-[11px] text-mute">github-backed</span>
-          </div>
+          <h2
+            id="stack-directory"
+            className="flex items-center gap-3 font-mono text-[19px] font-semibold tracking-[-0.02em] text-ink"
+          >
+            Stack directory
+            <span className="rounded-full bg-lift px-2 font-mono text-[12px] font-normal text-dust">
+              {stacks.length}
+            </span>
+          </h2>
 
-          <div className="mt-10 grid gap-px overflow-hidden rounded-lg border border-line bg-line md:grid-cols-2 xl:grid-cols-3">
+          <ul className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {stacks.map((stack) => (
-              <StackCard key={stack.id} stack={stack} />
+              <li key={stack.id} className="min-w-0">
+                <StackCard stack={stack} />
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       </main>
+
+      <SiteFooter />
     </div>
   )
 }
 
 function StackCard({ stack }: { stack: PublicStackIndexItem }) {
   return (
-    <article className="bg-shade p-6 transition-colors hover:bg-lift">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-fade">
-            {stack.category || 'stack'}
-          </div>
-          <h3 className="mt-3 font-mono text-xl font-semibold tracking-tight text-ink">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-line bg-shade transition-colors hover:border-edge">
+      <div className="flex items-center justify-between gap-3 border-b border-line bg-lift px-4 py-2.5 font-mono text-[12px]">
+        <span className="min-w-0 truncate text-ink">stacks/{stack.slug}</span>
+        <span className="shrink-0 text-dust">{stack.category || 'stack'}</span>
+      </div>
+
+      <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
+        <h3 className="font-mono text-[19px] font-semibold tracking-[-0.02em] text-ink">
+          <Link
+            href={`/stacks/${stack.slug}`}
+            className="after:absolute after:inset-0 after:content-[''] group-hover:text-lime"
+          >
             {stack.name}
-          </h3>
+          </Link>
+        </h3>
+
+        <p className="mt-2 flex-1 text-[14px] leading-relaxed text-dust">
+          {stack.description ||
+            `Track ${stack.name} releases, breaking changes, and upgrade notes.`}
+        </p>
+
+        <dl className="mt-5 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[12px]">
+          <div className="flex gap-1.5">
+            <dt className="text-dust">releases</dt>
+            <dd className="tabular-nums text-ink">{stack.releases}</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="text-dust">security</dt>
+            <dd
+              className={stack.security > 0 ? 'tabular-nums text-rose' : 'tabular-nums text-dust'}
+            >
+              {stack.security}
+            </dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="text-dust">migrations</dt>
+            <dd
+              className={stack.migrations > 0 ? 'tabular-nums text-cyan' : 'tabular-nums text-dust'}
+            >
+              {stack.migrations}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="relative z-10 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3 font-mono text-[12px] text-dust">
+          <a
+            href={stack.githubRepoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-lime"
+          >
+            <Link01Icon aria-hidden="true" className="size-3" />
+            repo ↗
+          </a>
+          <span>
+            {stack.latestPublishedAt
+              ? `latest ${formatDate(stack.latestPublishedAt)}`
+              : 'no releases yet'}
+          </span>
         </div>
-        <Link
-          href={`/stacks/${stack.slug}`}
-          aria-label={`Open ${stack.name} release notes`}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-ruling text-fade transition-colors hover:border-lime hover:text-lime"
-        >
-          <ArrowRight01Icon className="h-4 w-4" />
-        </Link>
-      </div>
-
-      <p className="mt-3 min-h-[3.5rem] text-[14px] leading-relaxed text-dust">
-        {stack.description || `Track ${stack.name} releases, breaking changes, and upgrade notes.`}
-      </p>
-
-      <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-md border border-line bg-line">
-        <MiniStat label="releases" value={stack.releases} tone="ink" />
-        <MiniStat label="security" value={stack.security} tone="rose" />
-        <MiniStat label="migrations" value={stack.migrations} tone="cyan" />
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 font-mono text-[11px]">
-        <a
-          href={stack.githubRepoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-fade transition-colors hover:text-lime"
-        >
-          <Link01Icon className="h-3 w-3" />
-          repo
-          <span className="text-mute">↗</span>
-        </a>
-        <span className="text-fade">
-          {stack.latestPublishedAt
-            ? `latest ${formatDate(stack.latestPublishedAt)}`
-            : 'no releases yet'}
-        </span>
       </div>
     </article>
-  )
-}
-
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: number
-  tone: 'ink' | 'lime' | 'rose' | 'cyan'
-}) {
-  const toneClass =
-    tone === 'lime'
-      ? 'text-lime'
-      : tone === 'rose'
-        ? 'text-rose'
-        : tone === 'cyan'
-          ? 'text-cyan'
-          : 'text-ink'
-
-  return (
-    <div className="bg-shade px-4 py-4">
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-fade">{label}</div>
-      <div className={`mt-1 font-mono text-3xl font-semibold ${toneClass}`}>{value}</div>
-    </div>
-  )
-}
-
-function MiniStat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: number
-  tone: 'ink' | 'rose' | 'cyan'
-}) {
-  const toneClass = tone === 'rose' ? 'text-rose' : tone === 'cyan' ? 'text-cyan' : 'text-ink'
-
-  return (
-    <div className="bg-void px-3 py-2">
-      <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-fade">{label}</div>
-      <div className={`mt-1 font-mono text-lg font-semibold ${toneClass}`}>{value}</div>
-    </div>
   )
 }
 

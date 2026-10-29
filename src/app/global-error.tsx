@@ -45,25 +45,24 @@ export default function GlobalError({
               maxWidth: '460px',
               background: 'var(--shade)',
               border: '1px solid var(--line)',
-              borderRadius: '6px',
+              borderRadius: '12px',
               overflow: 'hidden',
             }}
           >
             <div
               style={{
                 borderBottom: '1px solid var(--line)',
+                background: 'var(--lift)',
                 padding: '10px 14px',
-                fontSize: '11px',
-                color: 'var(--fade)',
+                fontSize: '12px',
+                color: 'var(--dust)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
               }}
             >
-              <span style={{ width: 9, height: 9, borderRadius: 9, background: '#fb7185' }} />
-              <span style={{ width: 9, height: 9, borderRadius: 9, background: '#fbbf24' }} />
-              <span style={{ width: 9, height: 9, borderRadius: 9, background: '#34d399' }} />
-              <span style={{ marginLeft: 6, marginRight: 'auto', color: 'var(--dust)' }}>~/fatal</span>
+              <span style={{ marginRight: 'auto', color: 'var(--ink)' }}>app/root.tsx</span>
+              <span style={{ color: 'var(--rose)' }}>fatal</span>
               <ThemeSwitcher />
             </div>
 

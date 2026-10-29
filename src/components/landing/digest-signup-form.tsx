@@ -1,16 +1,22 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useId, useState, useTransition } from 'react'
 
+import { PulseLoader } from '@/components/ui/pulse-loader'
 import { subscribeToDigest } from '@/lib/actions'
 
 export function DigestSignupForm({
   stackSlug,
   source = 'public',
+  framed = true,
 }: {
   stackSlug?: string
   source?: string
+  /** Draw its own card; turn off when the form already sits inside one. */
+  framed?: boolean
 }) {
+  const emailId = useId()
+  const messageId = useId()
   const [email, setEmail] = useState('')
   const [website, setWebsite] = useState('')
   const [message, setMessage] = useState<string | null>(null)
@@ -19,7 +25,7 @@ export function DigestSignupForm({
 
   return (
     <form
-      className="frame p-4"
+      className={framed ? 'rounded-xl border border-line bg-shade p-4' : undefined}
       onSubmit={(event) => {
         event.preventDefault()
         setMessage(null)
@@ -35,8 +41,8 @@ export function DigestSignupForm({
         })
       }}
     >
-      <label className="font-mono text-[11px] uppercase tracking-[0.2em] text-fade">
-        weekly upgrade digest
+      <label htmlFor={emailId} className="font-mono text-[13px] font-semibold text-ink">
+        Weekly upgrade digest
       </label>
       <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
         <input
@@ -49,30 +55,35 @@ export function DigestSignupForm({
           aria-hidden="true"
         />
         <input
+          id={emailId}
           type="email"
           required
+          autoComplete="email"
+          aria-describedby={messageId}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
-          className="h-10 rounded-md border border-line bg-void px-3 font-mono text-[12px] text-dust placeholder:text-fade"
+          className="h-11 min-w-0 rounded-lg border border-ruling bg-void px-3 font-mono text-[13px] text-ink placeholder:text-fade"
         />
         <button
           type="submit"
           disabled={isPending}
-          className="h-10 rounded-md bg-lime px-4 font-mono text-[12px] font-semibold text-void transition-colors hover:bg-lime/85 disabled:opacity-60"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-lime px-4 font-mono text-[13px] font-semibold text-void transition-colors hover:bg-lime/85 disabled:opacity-70"
         >
-          {isPending ? 'saving...' : 'notify me'}
+          {isPending ? <PulseLoader size="inline" tone="dark" label="saving" /> : 'Notify me'}
         </button>
       </div>
-      <p className="mt-3 text-[12px] leading-relaxed text-fade">
+      <p className="mt-3 text-[13px] leading-relaxed text-dust">
         Get source-linked upgrade notes and occasional sponsor recommendations. No GitHub login
         required.
       </p>
-      {message && (
-        <p className={`mt-2 font-mono text-[11px] ${isSuccess ? 'text-lime' : 'text-rose'}`}>
-          {message}
-        </p>
-      )}
+      <p
+        id={messageId}
+        role="status"
+        className={`mt-2 font-mono text-[12px] empty:hidden ${isSuccess ? 'text-emerald' : 'text-rose'}`}
+      >
+        {message}
+      </p>
     </form>
   )
 }

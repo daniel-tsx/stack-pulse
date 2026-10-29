@@ -84,6 +84,26 @@
     }
   }
 
+  /* Homepage hero: the removed line strikes through, then the added line lands */
+  --animate-diff-strike: diff-strike 0.6s cubic-bezier(0.65, 0, 0.35, 1) 0.5s both;
+  --animate-diff-land: diff-land 0.55s cubic-bezier(0.16, 1, 0.3, 1) 1.05s both;
+
+  @keyframes diff-strike {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes diff-land {
+    from {
+      opacity: 0;
+      transform: translateY(-0.25em);
+    }
+  }
+
   /* Logo: beats rise off the feed line, flagged beat pings once */
   @keyframes logo-rise {
     from {
@@ -519,8 +539,8 @@ a:not([class]):hover {
   letter-spacing: -0.01em;
 }
 .legal-prose h2::before {
-  content: '§ ';
-  color: var(--lime);
+  content: '## ';
+  color: var(--fade);
 }
 .legal-prose p {
   margin-bottom: 1rem;

@@ -1,7 +1,7 @@
 # Design system
 
 **Status:** current  
-**Last verified:** 2026-10-16 (theme architecture + tokens)
+**Last verified:** 2026-10-29 (diff review language for public pages; theme architecture + tokens)
 
 StackPulse **UI design system** and application architecture. Read this before adding pages, components, or visual changes so new work matches the terminal-inspired product shell.
 
@@ -89,9 +89,24 @@ flowchart TB
 
 - Dark void or off-white background with dotted grid + subtle noise (`globals.css` `body::before/after`)
 - Monospace voice for headings, labels, CLI copy, errors
-- “Window chrome” panels: traffic-light dots, title bars, faux shell paths (`~/dashboard/feed`)
 - Syntax-inspired accents on semantic meaning (lime = primary action, rose = danger/breaking)
-- Lowercase headings with a **lime full stop** after the title: `your feed<span class="text-lime">.</span>`
+
+**Public pages use the "diff review" language** (homepage, stacks, skills, status, legal,
+sign-in, 404/error, digest unsubscribe): every page reads like a pull request.
+
+- Page intro: state badge + breadcrumb path (`stackpulse / stacks / react`), then a sentence-case
+  mono title, lede and actions (`PageIntro`).
+- Panels are changed files: a file-path header that sticks under the site header, then content
+  (`FileCard`). Diff gutters (`DiffLine`: `+` emerald, `-` rose, `@@` hunk cyan) are used where the
+  content really is a list of changes or a file.
+- Risky release notes are review comments from `stackpulse` with a semantic badge (`ReviewComment`).
+- Real counts render as CI-style checks or stat tiles (`Checks`, `StatGrid`); never invent numbers.
+  Example data is labelled `example`.
+- Calls to action are a merge box (`MergeBox`).
+
+The signed-in app (dashboard, onboarding, settings) still uses the original window-chrome panels
+(`.frame` + `.frame-titlebar` + `win-dots`) and lowercase headings with a **lime full stop**
+(`your feed<span class="text-lime">.</span>`). New public surfaces use the diff review language.
 
 **Do not introduce:**
 
@@ -195,12 +210,12 @@ Fonts loaded in `src/app/layout.tsx` (`Geist`, `Geist_Mono`).
 
 | Pattern | Usage |
 |---------|--------|
-| **Sticky header** | `sticky top-0 z-30 border-b border-line bg-void/80 backdrop-blur`, height `h-14`, `max-w-7xl px-6` |
-| **Content width** | Landing/stacks: `max-w-7xl`; dashboard feed: `max-w-4xl`; legal: `max-w-3xl`; auth/errors: `max-w-md`–`max-w-lg` |
-| **Page intro block** | Kicker → `h1` → `p` with `animate-fade-up` |
-| **Frame panel** | `.frame` + optional `.frame-titlebar` + `win-dots` — cards, auth, errors, empty states |
-| **Primary button** | `rounded-md bg-lime px-4 py-2.5 font-mono font-semibold text-void hover:bg-lime/85` with optional `$` prefix |
-| **Secondary button** | `border border-ruling bg-shade … hover:border-edge hover:bg-lift` |
+| **Site header** | Public pages: `SiteHeader` (`components/site/site-header.tsx`), sticky `h-14`, `bg-void/85 backdrop-blur-md`; app pages keep their own sticky header |
+| **Content width** | Public: `max-w-6xl` (release `max-w-5xl`, upgrade `max-w-4xl`, legal `max-w-3xl`); dashboard feed: `max-w-4xl`; auth/errors: `max-w-md` (`CenteredShell`) |
+| **Page intro block** | Public: `PageIntro`. App: kicker → `h1` → `p` with `animate-fade-up` |
+| **File card** | Public: `FileCard` — `rounded-xl border-line bg-shade`, `bg-lift` file-path header sticky at `top-14` (`overflow-clip`, not `overflow-hidden`) |
+| **Frame panel** | App only: `.frame` + optional `.frame-titlebar` + `win-dots` |
+| **Buttons** | `button.primary` / `button.secondary` / `button.ghost` from `components/review/review-ui.tsx`: `min-h-11 rounded-lg font-mono text-[13px]`, lime primary with `text-void` |
 | **Destructive** | `bg-rose text-void` or rose text on rose/5 hover bg |
 
 Reuse `<Logo />` in headers; link home with `hover:opacity-80 transition-opacity`.
@@ -215,7 +230,7 @@ Reuse `<Logo />` in headers; link home with `hover:opacity-80 transition-opacity
 | Tool | When |
 |------|------|
 | `animate-fade-up`, `animate-fade-in`, `stagger-*` | Page enter, lists |
-| `motion/react` | Landing hero only (`stack-pulse-hero.tsx`) — avoid sprinkling motion elsewhere |
+| `animate-diff-strike`, `animate-diff-land` | Homepage hero only: the removed line strikes through, then the added line lands. Pair with `motion-reduce:animate-none` |
 | `PulseLoader` | Loading states (not spinners) |
 | `.skeleton` | Placeholders — pulse, not shimmer gradient |
 
@@ -231,26 +246,30 @@ Respect `prefers-reduced-motion` (already in `globals.css`).
 | `PulseLoader` | `components/ui/pulse-loader.tsx` | Inline/sm/lg loading |
 | `Button` | `components/ui/button.tsx` | shadcn/base-ui when variant system helps |
 | `LegalShell` | `components/landing/legal-shell.tsx` | Privacy/terms layout |
-| `DigestSignupForm` | `components/landing/digest-signup-form.tsx` | Email capture block |
+| `DigestSignupForm` | `components/landing/digest-signup-form.tsx` | Email capture block (`framed={false}` inside another card) |
+| `SiteHeader`, `SiteFooter` | `components/site/` | Public header (sticky, theme switcher, optional `account` slot) and footer |
+| `PageIntro`, `FileCard`, `DiffLines`/`DiffLine`, `ReviewComment`, `MergeBox`, `Checks`, `StatGrid`, `CardNote`, `Badge`, `CenteredShell`, `button` | `components/review/review-ui.tsx` | Diff review building blocks for public pages; server-safe |
 
 New surfaces should compose these before inventing parallel patterns.
 
 ### Copy voice
 
-- **Lowercase** for UI chrome: `sign in`, `your feed`, `configure stack`
-- **CLI metaphor:** `$ command`, `// comments`, `cd ..`, `exit code 1`, `→ hints`
-- **Errors:** plain language, monospace, rose for fault — no corporate alert boxes
+- **Lowercase** for small UI chrome: nav links, file paths, badges (`stacks`, `sign in`, `breaking`)
+- **Sentence case** for public headings, ledes and buttons: `Review what breaks.`, `Sign in with GitHub`
+- **Review metaphor** on public pages: file paths, `+`/`-` lines, `@@` hunks, "stackpulse reviewed";
+  the app keeps the CLI metaphor (`$ command`, `// comments`, `exit code 1`)
+- **Errors:** plain language, monospace, rose for fault — say what happened and the next step
 - **Avoid title case** in headings and buttons unless proper nouns (GitHub, StackPulse)
 
 ### Page templates
 
 When adding a page, pick the closest template:
 
-1. **Marketing / landing** — `page.tsx`: hero section, `StackPulseHero`, frame blocks, footer with mono links
+1. **Marketing / landing** — `page.tsx`: diff hero, checks, files-changed sidebar + `FileCard`s, `MergeBox`, `SiteFooter`
 2. **App shell** — sticky header + kicker/title + main (`dashboard`, `onboarding`)
-3. **Public content** — stacks layout: header, stats, release cards with signal badges
-4. **Auth / empty / error** — centered `frame` with titlebar + terminal copy
-5. **Legal** — `LegalShell` + `legal-prose` class
+3. **Public content** — `SiteHeader` + `PageIntro` (stats `FileCard` in `aside`) + `FileCard`s + `SiteFooter`
+4. **Auth / empty / error** — `CenteredShell` + `FileCard` (sign-in keeps the same look inline)
+5. **Legal** — `LegalShell` (`PageIntro` + `FileCard` + `legal-prose`)
 
 ---
 
@@ -286,8 +305,8 @@ release_fetch_runs (audit)
 Before shipping UI or architecture changes:
 
 - [ ] Uses design tokens (`text-dust`, `border-line`, `bg-lime`) — no ad-hoc hex
-- [ ] Headings follow mono + lowercase + lime `.` pattern where appropriate
-- [ ] Panels use `frame` / sticky header patterns from sibling pages
+- [ ] Public pages use `SiteHeader`/`PageIntro`/`FileCard`/`SiteFooter`; app pages keep mono + lowercase + lime `.` headings
+- [ ] Panels use `FileCard` (public) or `frame` (app) patterns from sibling pages
 - [ ] Badges match semantic tone table above
 - [ ] Icons from `hugeicons-react` in product surfaces
 - [ ] Loading uses `PulseLoader` or `.skeleton`

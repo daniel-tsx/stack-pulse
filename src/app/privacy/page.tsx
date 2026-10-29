@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalShell title="privacy" slug="legal/privacy" updatedAt="May 2026">
+    <LegalShell title="Privacy" slug="legal/privacy" updatedAt="May 2026">
       <p>
         StackPulse is a non-profit, open-source service that helps developers track GitHub release
         notes for the libraries they use. We try to collect as little as possible. This page
