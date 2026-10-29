@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { PageIntro } from '@/components/review/review-ui'
 import { SkillDate, SkillPanel, SkillShell, UpdateRows } from '@/components/skills/skill-ui'
 import { SKILL_CATALOG, skillSourceUrl } from '@/lib/skill-catalog'
 import { getPublicSkill, skillCheckLabel } from '@/lib/public-skills'
@@ -28,14 +28,15 @@ export default async function SkillPage({ params }: Props) {
   const { skill, updates } = data
   return (
     <SkillShell>
-      <Link href="/skills" className="font-mono text-xs text-lime hover:underline">
-        ← all skills
-      </Link>
-      <h1 className="mt-6 break-words font-mono text-3xl font-semibold text-ink sm:text-5xl">
-        {skill.name}
-        <span className="text-lime">.</span>
-      </h1>
-      <p className="mt-4 text-dust">{skill.description}</p>
+      <PageIntro
+        path={[
+          { label: 'stackpulse', href: '/' },
+          { label: 'skills', href: '/skills' },
+          { label: skill.slug },
+        ]}
+        title={skill.name}
+        lede={skill.description}
+      />
       <SkillPanel title={`${skill.slug}/source`}>
         <p className="font-mono text-xs">
           {skill.repository}

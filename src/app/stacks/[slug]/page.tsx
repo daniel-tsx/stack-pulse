@@ -1,12 +1,22 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft01Icon, ArrowUp01Icon, Link01Icon, RssIcon } from 'hugeicons-react'
+import { ArrowUp01Icon, GitCompareIcon, Link01Icon, RssIcon } from 'hugeicons-react'
 
 import { DigestSignupForm } from '@/components/landing/digest-signup-form'
-import { Logo } from '@/components/logo'
 import { ReleaseNotes } from '@/components/releases/release-notes'
-import { ThemeSwitcher } from '@/components/theme-switcher'
+import {
+  Badge,
+  CardNote,
+  FileCard,
+  PageIntro,
+  ReviewComment,
+  StatGrid,
+  button,
+  cx,
+} from '@/components/review/review-ui'
+import { SiteFooter } from '@/components/site/site-footer'
+import { SiteHeader } from '@/components/site/site-header'
 import {
   getPublicStackPage,
   getPublicStackSlugs,
@@ -20,20 +30,7 @@ type Props = {
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-const signalTone: Record<string, string> = {
-  breaking: 'border-rose/30 bg-rose/10 text-rose',
-  deprecation: 'border-amber/30 bg-amber/10 text-amber',
-  migration: 'border-cyan/30 bg-cyan/10 text-cyan',
-  feature: 'border-emerald/30 bg-emerald/10 text-emerald',
-  security: 'border-rose/30 bg-rose/10 text-rose',
-}
-
-const importanceTone: Record<string, string> = {
-  critical: 'border-rose/30 bg-rose/10 text-rose',
-  high: 'border-amber/30 bg-amber/10 text-amber',
-  medium: 'border-cyan/30 bg-cyan/10 text-cyan',
-  low: 'border-fade/20 bg-dust/10 text-fade',
-}
+const visibleSignals = new Set(['breaking', 'deprecation', 'migration', 'feature', 'security'])
 
 const signalFilters = ['all', 'breaking', 'deprecation', 'migration', 'security'] as const
 type SignalFilter = (typeof signalFilters)[number]
@@ -120,162 +117,154 @@ export default async function StackPage({ params, searchParams }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="mx-auto max-w-6xl px-6 h-14 flex items-center justify-between relative z-20 border-b border-line/60">
-        <Link href="/" className="hover:opacity-80 transition-opacity">
-          <Logo size="md" />
-        </Link>
-        <nav className="flex items-center gap-2 sm:gap-4 font-mono text-[11px] text-fade">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 hover:text-dust transition-colors"
-          >
-            <ArrowLeft01Icon className="w-3 h-3" />
-            cd ..
-          </Link>
-          <Link href="/sign-in" className="text-lime hover:underline">
-            track stack
-          </Link>
-          <ThemeSwitcher />
-        </nav>
-      </header>
+      <SiteHeader active="stacks" />
 
-      <main className="relative z-10 mx-auto max-w-6xl px-6 py-14">
-        <div className="font-mono text-[11px] text-fade tracking-[0.2em] uppercase flex flex-wrap items-center gap-3">
-          <span className="text-lime">#</span>
-          <span>stacks/{data.tech.slug}</span>
-          {data.tech.category && (
+      <main className="relative z-10 mx-auto max-w-6xl px-5 py-12 sm:px-6 sm:py-14">
+        <PageIntro
+          path={[
+            { label: 'stackpulse', href: '/' },
+            { label: 'stacks', href: '/stacks' },
+            { label: data.tech.slug },
+          ]}
+          state={data.tech.category ? { label: data.tech.category, tone: 'neutral' } : undefined}
+          title={`${data.tech.name} release notes, breaking changes, and upgrade notes`}
+          lede={
             <>
-              <span className="text-mute">/</span>
-              <span>{data.tech.category}</span>
+              {withFullStop(
+                data.tech.description || `Follow ${data.tech.name} releases from GitHub`,
+              )}{' '}
+              StackPulse turns upstream changelogs into scannable summaries with risky changes,
+              deprecations, migration notes, and source links.
             </>
-          )}
-        </div>
-
-        <div className="mt-6 grid gap-10 lg:grid-cols-[1fr_320px] lg:items-start">
-          <div>
-            <h1 className="font-mono text-3xl font-bold tracking-tight text-ink sm:text-5xl">
-              {data.tech.name} release notes, breaking changes, and upgrade notes
-              <span className="text-lime">.</span>
-            </h1>
-            <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-dust">
-              {data.tech.description || `Follow ${data.tech.name} releases from GitHub.`} StackPulse
-              turns upstream changelogs into scannable summaries with risky changes, deprecations,
-              migration notes, and source links.
-            </p>
-            <div className="mt-6 flex flex-wrap items-center gap-3 font-mono text-[12px]">
+          }
+          actions={
+            <>
+              <Link href="/sign-in" className={button.primary}>
+                Track this stack
+              </Link>
+              <Link href={`/stacks/${data.tech.slug}/upgrade`} className={button.secondary}>
+                <ArrowUp01Icon aria-hidden="true" className="size-3.5" />
+                Plan an upgrade
+              </Link>
               <a
                 href={data.tech.githubRepoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-ruling bg-shade px-3 py-2 text-dust transition-colors hover:border-lime hover:text-lime"
+                className={button.ghost}
               >
-                <Link01Icon className="h-3.5 w-3.5" />
-                source repo
+                <Link01Icon aria-hidden="true" className="size-3.5" />
+                Source repo
               </a>
-              <Link
-                href="/sign-in"
-                className="inline-flex items-center gap-2 rounded-md bg-lime px-3 py-2 font-semibold text-void transition-colors hover:bg-lime/85"
-              >
-                <span className="text-void/60">$</span>
-                <span>track this stack</span>
-              </Link>
-              <Link
-                href={`/stacks/${data.tech.slug}/upgrade`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-ruling bg-shade px-3 py-2 text-dust transition-colors hover:border-lime hover:text-lime"
-              >
-                <ArrowUp01Icon className="h-3.5 w-3.5" />
-                plan upgrade
-              </Link>
-              <a
-                href={`/stacks/${data.tech.slug}/rss.xml`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-ruling bg-shade px-3 py-2 text-dust transition-colors hover:border-lime hover:text-lime"
-              >
-                <RssIcon className="h-3.5 w-3.5" />
-                rss
+              <a href={`/stacks/${data.tech.slug}/rss.xml`} className={button.ghost}>
+                <RssIcon aria-hidden="true" className="size-3.5" />
+                RSS
               </a>
+            </>
+          }
+          aside={
+            <div className="grid gap-4">
+              <FileCard path={`stacks/${data.tech.slug}/summary`}>
+                <StatGrid
+                  stats={[
+                    { label: 'releases', value: data.stats.releases },
+                    { label: 'breaking', value: data.stats.breaking, tone: 'rose' },
+                    { label: 'security', value: data.stats.security, tone: 'rose' },
+                    { label: 'deprecated', value: data.stats.deprecations, tone: 'amber' },
+                    { label: 'migrations', value: data.stats.migrations, tone: 'cyan' },
+                  ]}
+                />
+              </FileCard>
+              <DigestSignupForm stackSlug={data.tech.slug} source={`stack:${data.tech.slug}`} />
             </div>
+          }
+        />
+
+        <FileCard path={`stacks/${data.tech.slug}/README.md`} meta="what you get" className="mt-14">
+          <div className="grid gap-3 p-4 sm:p-5 md:grid-cols-3">
+            <ReviewComment tone="feature" label="tracking" action="tracks">
+              <strong className="font-semibold">{data.tech.name} releases from GitHub.</strong>{' '}
+              <span className="text-dust">
+                StackPulse watches {data.tech.name} release notes and keeps the original source link
+                close to every summary.
+              </span>
+            </ReviewComment>
+            <ReviewComment tone="breaking" label="upgrade risk" action="flags">
+              <strong className="font-semibold">Breaking changes and deprecations.</strong>{' '}
+              <span className="text-dust">
+                Risky changes are separated from normal feature notes so you can scan upgrade impact
+                before changing production dependencies.
+              </span>
+            </ReviewComment>
+            <ReviewComment tone="migration" label="migration notes" action="adds">
+              <strong className="font-semibold">Source-backed next steps.</strong>{' '}
+              <span className="text-dust">
+                Migration steps and recommended actions are only shown when the upstream release
+                notes support them.
+              </span>
+            </ReviewComment>
           </div>
+        </FileCard>
 
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line">
-            <Stat label="releases" value={data.stats.releases} tone="ink" />
-            <Stat label="breaking" value={data.stats.breaking} tone="rose" />
-            <Stat label="security" value={data.stats.security} tone="rose" />
-            <Stat label="deprecated" value={data.stats.deprecations} tone="amber" />
-            <Stat label="migrations" value={data.stats.migrations} tone="cyan" />
-          </div>
-          <DigestSignupForm stackSlug={data.tech.slug} source={`stack:${data.tech.slug}`} />
-        </div>
-
-        <section className="mt-16 grid gap-px overflow-hidden rounded-lg border border-line bg-line md:grid-cols-3">
-          <SeoBlock
-            label="what stackpulse tracks"
-            title={`${data.tech.name} releases from GitHub`}
-            body={`StackPulse watches ${data.tech.name} release notes and keeps the original source link close to every summary.`}
-          />
-          <SeoBlock
-            label="upgrade risk"
-            title="Breaking changes and deprecations"
-            body="Risky changes are separated from normal feature notes so you can scan upgrade impact before changing production dependencies."
-          />
-          <SeoBlock
-            label="migration notes"
-            title="Source-backed next steps"
-            body="Migration steps and recommended actions are only shown when the upstream release notes support them."
-          />
-        </section>
-
-        <section className="mt-16" aria-labelledby="latest-releases">
-          <div className="flex items-center gap-4">
+        <section className="mt-14" aria-labelledby="latest-releases">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h2
               id="latest-releases"
-              className="font-mono text-[11px] uppercase tracking-[0.25em] text-fade"
+              className="flex items-center gap-3 font-mono text-[19px] font-semibold tracking-[-0.02em] text-ink"
             >
-              # latest_releases
+              Latest releases
+              <span className="rounded-full bg-lift px-2 text-[12px] font-normal text-dust">
+                {filteredReleases.length}
+              </span>
             </h2>
-            <div className="h-px flex-1 bg-line" />
-            <span className="font-mono text-[11px] text-mute">source-backed</span>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-2 font-mono text-[11px]">
-            {signalFilters.map((signal) => (
-              <Link
-                key={signal}
-                href={
-                  signal === 'all'
-                    ? `/stacks/${data.tech.slug}`
-                    : `/stacks/${data.tech.slug}?signal=${signal}`
-                }
-                className={`rounded-md border px-3 py-1.5 transition-colors ${
-                  signalFilter === signal
-                    ? 'border-lime bg-lime-dim text-lime'
-                    : 'border-ruling bg-shade text-fade hover:border-edge hover:text-ink'
-                }`}
-              >
-                {signal}
-              </Link>
-            ))}
+            <nav
+              aria-label="Filter releases by signal"
+              className="flex flex-wrap gap-1.5 font-mono text-[12px]"
+            >
+              {signalFilters.map((signal) => (
+                <Link
+                  key={signal}
+                  href={
+                    signal === 'all'
+                      ? `/stacks/${data.tech.slug}`
+                      : `/stacks/${data.tech.slug}?signal=${signal}`
+                  }
+                  aria-current={signalFilter === signal ? 'page' : undefined}
+                  className={cx(
+                    'rounded-full border px-3 py-1 transition-colors',
+                    signalFilter === signal
+                      ? 'border-lime/50 bg-lime-dim text-ink'
+                      : 'border-ruling text-dust hover:border-edge hover:text-ink',
+                  )}
+                >
+                  {signal}
+                </Link>
+              ))}
+            </nav>
           </div>
 
           {data.releases.length === 0 ? (
-            <div className="mt-10 frame p-8 text-center">
-              <p className="font-mono text-[13px] text-dust">
-                no releases have been indexed for this stack yet.
-              </p>
-              <p className="mt-1 font-mono text-[11px] text-fade">
-                follow it from the dashboard to start collecting release notes.
-              </p>
-            </div>
+            <FileCard path={`stacks/${data.tech.slug}/releases`} className="mt-6">
+              <CardNote title="No releases indexed yet.">
+                Follow this stack from the dashboard to start collecting its release notes. New
+                releases are fetched at 00:00 and 12:00 UTC.
+              </CardNote>
+            </FileCard>
           ) : filteredReleases.length === 0 ? (
-            <div className="mt-10 frame p-8 text-center">
-              <p className="font-mono text-[13px] text-dust">
-                no releases match the {signalFilter} filter.
-              </p>
-              <p className="mt-1 font-mono text-[11px] text-fade">
-                try viewing all indexed releases for this stack.
-              </p>
-            </div>
+            <FileCard
+              path={`stacks/${data.tech.slug}/releases?signal=${signalFilter}`}
+              className="mt-6"
+            >
+              <CardNote title={`No releases match the ${signalFilter} filter.`}>
+                <Link
+                  href={`/stacks/${data.tech.slug}`}
+                  className="text-lime underline-offset-4 hover:underline"
+                >
+                  View all indexed releases
+                </Link>
+              </CardNote>
+            </FileCard>
           ) : (
-            <div className="mt-10 space-y-6">
+            <div className="mt-6 grid gap-5">
               {filteredReleases.map((release) => (
                 <ReleaseArticle key={release.id} release={release} techSlug={data.tech.slug} />
               ))}
@@ -283,8 +272,14 @@ export default async function StackPage({ params, searchParams }: Props) {
           )}
         </section>
       </main>
+
+      <SiteFooter />
     </div>
   )
+}
+
+function withFullStop(text: string) {
+  return /[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`
 }
 
 function parseSignalFilter(value: string | string[] | undefined): SignalFilter {
@@ -292,101 +287,57 @@ function parseSignalFilter(value: string | string[] | undefined): SignalFilter {
   return signalFilters.includes(raw as SignalFilter) ? (raw as SignalFilter) : 'all'
 }
 
-function SeoBlock({ label, title, body }: { label: string; title: string; body: string }) {
-  return (
-    <article className="bg-shade p-6">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-lime">{label}</p>
-      <h2 className="mt-4 font-mono text-lg font-semibold tracking-tight text-ink">{title}</h2>
-      <p className="mt-3 text-[14px] leading-relaxed text-dust">{body}</p>
-    </article>
-  )
-}
-
 function ReleaseArticle({ release, techSlug }: { release: PublicStackRelease; techSlug: string }) {
   const importance = release.importanceLevel || 'medium'
-  const visibleSignals = release.releaseSignals.filter((signal) => signal in signalTone)
+  const signals = release.releaseSignals.filter((signal) => visibleSignals.has(signal))
 
   return (
-    <article className="frame overflow-hidden">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 font-mono text-[12px]">
+    <article className="min-w-0 overflow-clip rounded-xl border border-line bg-shade">
+      <div className="sticky top-14 z-10 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-line bg-lift px-4 py-2.5 font-mono text-[12px]">
         <span className="text-amber">{release.version}</span>
-        <span
-          className={`inline-flex rounded-[3px] border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${importanceTone[importance] || importanceTone.medium}`}
-        >
-          {importance}
-        </span>
-        {visibleSignals.map((signal) => (
-          <span
-            key={signal}
-            className={`inline-flex rounded-[3px] border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${signalTone[signal]}`}
-          >
+        <Badge tone={importance}>{importance}</Badge>
+        {signals.map((signal) => (
+          <Badge key={signal} tone={signal}>
             {signal}
-          </span>
+          </Badge>
         ))}
-        {release.isPrerelease && (
-          <span className="rounded-[3px] border border-violet/30 bg-violet/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-violet">
-            prerelease
-          </span>
-        )}
+        {release.isPrerelease && <Badge tone="prerelease">prerelease</Badge>}
         {release.publishedAt && (
-          <span className="ml-auto text-fade">{formatDate(release.publishedAt)}</span>
+          <time dateTime={release.publishedAt.toISOString()} className="ml-auto text-dust">
+            {formatDate(release.publishedAt)}
+          </time>
         )}
       </div>
 
       <div className="px-5 py-5">
-        <h3 className="font-mono text-xl font-semibold tracking-tight text-ink">
+        <h3 className="break-words font-mono text-[19px] font-semibold tracking-[-0.02em] text-ink">
           {release.title || release.version}
         </h3>
 
         <ReleaseNotes release={release} />
 
-        <Link
-          href={`/stacks/${techSlug}/releases/${release.id}`}
-          className="mt-5 mr-5 inline-flex items-center gap-1.5 font-mono text-[11px] text-lime hover:underline"
-        >
-          view details <span aria-hidden="true">→</span>
-        </Link>
-
-        {release.rawReleaseUrl && (
-          <a
-            href={release.rawReleaseUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center gap-1.5 font-mono text-[11px] text-fade transition-colors hover:text-lime"
+        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line pt-4 font-mono text-[12px]">
+          <Link
+            href={`/stacks/${techSlug}/releases/${release.id}`}
+            className="inline-flex items-center gap-1.5 text-lime underline-offset-4 hover:underline"
           >
-            <Link01Icon className="h-3 w-3" />
-            view source on github
-            <span className="text-mute">-&gt;</span>
-          </a>
-        )}
+            <GitCompareIcon aria-hidden="true" className="size-3.5" />
+            Review this release
+          </Link>
+          {release.rawReleaseUrl && (
+            <a
+              href={release.rawReleaseUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-dust transition-colors hover:text-lime"
+            >
+              <Link01Icon aria-hidden="true" className="size-3" />
+              Source on GitHub ↗
+            </a>
+          )}
+        </div>
       </div>
     </article>
-  )
-}
-
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: number
-  tone: 'ink' | 'rose' | 'amber' | 'cyan'
-}) {
-  const toneClass =
-    tone === 'rose'
-      ? 'text-rose'
-      : tone === 'amber'
-        ? 'text-amber'
-        : tone === 'cyan'
-          ? 'text-cyan'
-          : 'text-ink'
-
-  return (
-    <div className="bg-shade px-4 py-4">
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-fade">{label}</div>
-      <div className={`mt-1 font-mono text-3xl font-semibold ${toneClass}`}>{value}</div>
-    </div>
   )
 }
 

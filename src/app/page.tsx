@@ -1,79 +1,122 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { getAuth } from '@/lib/auth'
 import { headers } from 'next/headers'
-import {
-  ReactIcon,
-  TailwindcssIcon,
-  Typescript03Icon,
-  Database02Icon,
-  SourceCodeIcon,
-  ZapIcon,
-  ShadcnIcon,
-  ServerStack01Icon,
-  RocketIcon,
-  Package01Icon,
-  Atom01Icon,
-  Flag03Icon,
-} from 'hugeicons-react'
-import { Logo } from '@/components/logo'
-import { ThemeSwitcher } from '@/components/theme-switcher'
+import { redirect } from 'next/navigation'
+import { GithubIcon } from 'hugeicons-react'
+
 import { DigestSignupForm } from '@/components/landing/digest-signup-form'
-import { StackPulseHero } from '@/components/stack-pulse-hero'
+import {
+  Badge,
+  Checks,
+  DiffLine,
+  DiffLines,
+  FileCard,
+  MergeBox,
+  ReviewComment,
+  button,
+} from '@/components/review/review-ui'
+import { SiteFooter } from '@/components/site/site-footer'
+import { SiteHeader } from '@/components/site/site-header'
+import { getAuth } from '@/lib/auth'
 import { getLandingStats } from '@/lib/landing-stats'
 
 const steps = [
   {
-    n: '01',
-    cmd: 'stack add <tool>',
-    title: 'pick your stack',
+    title: 'Pick your stack',
     body: 'Paste your package.json and follow your whole stack in one click, choose from 90+ registry stacks, or add any GitHub repo URL.',
   },
   {
-    n: '02',
-    cmd: 'pulse --watch',
-    title: 'we watch the releases',
+    title: 'StackPulse watches the releases',
     body: 'Every new GitHub release for your stack is fetched twice a day, parsed, and run through an AI summariser tuned for changelogs and migration notes.',
   },
   {
-    n: '03',
-    cmd: 'feed --read',
-    title: 'review upgrade risk',
+    title: 'Review the upgrade risk',
     body: 'Read one feed with breaking changes, deprecations, new APIs, and source links called out before you update production dependencies.',
   },
 ]
 
 const trackedStacks = [
-  { name: 'react', slug: 'react', icon: ReactIcon },
-  { name: 'next', slug: 'nextjs', icon: SourceCodeIcon },
-  { name: 'tailwind', slug: 'tailwindcss', icon: TailwindcssIcon },
-  { name: 'shadcn', slug: 'shadcn-ui', icon: ShadcnIcon },
-  { name: 'typescript', slug: 'typescript', icon: Typescript03Icon },
-  { name: 'drizzle', slug: 'drizzle-orm', icon: Database02Icon },
-  { name: 'remix', slug: 'remix', icon: ServerStack01Icon },
-  { name: 'astro', slug: 'astro', icon: RocketIcon },
-  { name: 'vite', slug: 'vite', icon: ZapIcon },
-  { name: 'bun', slug: 'bun', icon: Package01Icon },
-  { name: 'svelte', slug: 'svelte', icon: Flag03Icon },
-  { name: 'solid', slug: 'solidjs', icon: Atom01Icon },
+  { name: 'react', slug: 'react' },
+  { name: 'next', slug: 'nextjs' },
+  { name: 'tailwind', slug: 'tailwindcss' },
+  { name: 'shadcn', slug: 'shadcn-ui' },
+  { name: 'typescript', slug: 'typescript' },
+  { name: 'drizzle', slug: 'drizzle-orm' },
+  { name: 'remix', slug: 'remix' },
+  { name: 'astro', slug: 'astro' },
+  { name: 'vite', slug: 'vite' },
+  { name: 'bun', slug: 'bun' },
+  { name: 'svelte', slug: 'svelte' },
+  { name: 'solid', slug: 'solidjs' },
 ]
 
 const releaseSignals = [
   {
+    tone: 'breaking',
     label: 'breaking changes',
     title: 'Find the release notes that can break production.',
     body: 'StackPulse highlights risky changes from upstream changelogs so you can scan the impact before bumping a framework, package, or tool.',
   },
   {
+    tone: 'deprecation',
     label: 'deprecations',
     title: 'Catch deprecated APIs before they disappear.',
     body: 'Follow the libraries in your stack and surface removals, renamed options, and migration warnings in the same place as normal releases.',
   },
   {
+    tone: 'migration',
     label: 'upgrade notes',
     title: 'Turn long changelogs into practical next steps.',
     body: 'Each digest keeps the important context close: what changed, why it matters, and where to read the original release before changing code.',
   },
+]
+
+const delivery = [
+  {
+    title: 'Weekly digest',
+    body: 'One email on Mondays with what shipped in the stacks you follow.',
+  },
+  {
+    title: 'Slack or Discord',
+    body: 'Send new releases above an importance threshold to one webhook.',
+  },
+  {
+    title: 'Ask about a release',
+    body: 'Signed in, ask follow-up questions about a specific upgrade.',
+  },
+  {
+    title: 'Public stack pages',
+    body: 'Source-linked release history for every stack in the registry.',
+  },
+]
+
+// Illustrative rows for the homepage review. Labelled "example" where they render.
+const exampleReleases: { stack: string; version: string; signal: string; comment?: string }[] = [
+  {
+    stack: 'next',
+    version: 'v16.2.6',
+    signal: 'breaking',
+    comment:
+      'Migration impact highlighted. Read the summary and the source release before you bump.',
+  },
+  {
+    stack: 'drizzle-orm',
+    version: 'v0.45.2',
+    signal: 'deprecation',
+    comment: 'Deprecated options called out. Plan the replacement before the next major.',
+  },
+  { stack: 'tailwindcss', version: 'v4.0.0', signal: 'migration' },
+  { stack: 'react', version: 'v19.2.0', signal: 'feature' },
+  { stack: 'better-auth', version: 'v1.6.10', signal: 'feature' },
+]
+
+const files = [
+  { id: 'feed', path: 'releases/since-last-read.diff', stat: '+5' },
+  { id: 'how-it-works', path: 'how-it-works.sh', stat: '+6' },
+  { id: 'signals', path: 'review/signals.md', stat: '3 comments' },
+  { id: 'registry', path: 'registry.json', stat: '+12' },
+  { id: 'mcp', path: '.mcp.json', stat: '+1' },
+  { id: 'pricing', path: 'pricing.diff', stat: '+3' },
+  { id: 'faq', path: 'FAQ.md', stat: '4 threads' },
 ]
 
 const faqItems = [
@@ -174,306 +217,313 @@ export default async function LandingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <header className="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between relative z-20 border-b border-line/60">
-        <Link href="/" className="hover:opacity-80 transition-opacity">
-          <Logo size="md" animated />
-        </Link>
-        <nav className="flex items-center gap-2 font-mono text-[12px]">
-          <span className="hidden sm:inline text-fade">v0.1.0</span>
-          <span className="hidden sm:inline text-mute mx-2">·</span>
-          <Link
-            href="/stacks"
-            className="hidden text-dust transition-colors hover:text-lime sm:inline"
-          >
-            stacks
-          </Link>
-          <Link href="/skills" className="text-dust transition-colors hover:text-lime">
-            skills
-          </Link>
-          <Link
-            href="/dashboard"
-            className="hidden text-dust transition-colors hover:text-lime sm:inline"
-          >
-            public feed
-          </Link>
-          <Link
-            href="/sign-in"
-            className="inline-flex items-center gap-1.5 rounded-md border border-ruling bg-shade px-3 py-1.5 text-ink hover:border-edge hover:bg-lift transition-colors"
-          >
-            <span className="text-lime">$</span>
-            <span className="hidden sm:inline">continue with github</span>
-            <span className="sm:hidden">sign in</span>
-          </Link>
-          <ThemeSwitcher />
-        </nav>
-      </header>
+      <SiteHeader active="home" />
 
       <main className="relative z-10">
-        <StackPulseHero />
-
-        {/* Live stats */}
-        {stats && stats.releases > 0 && (
-          <div className="mx-auto max-w-7xl px-6">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-line/60 py-3 font-mono text-[12px]">
-              <span className="text-fade">$ stackpulse --stats</span>
-              <span className="text-dust">
-                <span className="font-semibold text-lime">{stats.releases.toLocaleString()}</span>{' '}
-                releases distilled
-              </span>
-              <span className="text-dust">
-                <span className="font-semibold text-rose">{stats.breaking.toLocaleString()}</span>{' '}
-                with breaking changes
-              </span>
-              <span className="text-dust">
-                <span className="font-semibold text-cyan">{stats.stacks.toLocaleString()}</span>{' '}
-                stacks in registry
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Release signals */}
-        <div className="mx-auto max-w-7xl px-6 mt-16 sm:mt-24">
-          <div className="flex items-center gap-4">
-            <h2 className="font-mono text-[11px] text-fade tracking-[0.25em] uppercase">
-              §&nbsp;release_intelligence
-            </h2>
-            <div className="h-px flex-1 bg-line" />
-            <span className="font-mono text-[11px] text-mute">source-backed</span>
-          </div>
-        </div>
-
         <section
-          aria-labelledby="release-intelligence"
-          className="mx-auto max-w-7xl px-6 pt-10 pb-8"
+          aria-labelledby="hero-title"
+          className="mx-auto max-w-6xl px-5 pt-12 sm:px-6 sm:pt-20"
         >
-          <div className="max-w-3xl">
-            <h2
-              id="release-intelligence"
-              className="font-mono text-2xl sm:text-4xl font-bold tracking-tight text-ink"
-            >
-              Release notes are easy to miss. Breaking changes are not.
-            </h2>
-            <p className="mt-4 text-[15px] leading-relaxed text-dust">
-              StackPulse is built for developers who need to know when a framework release,
-              dependency update, or package changelog contains work that can affect production code.
-            </p>
-          </div>
-
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-px bg-line border border-line rounded-lg overflow-hidden">
-            {releaseSignals.map((signal) => (
-              <article
-                key={signal.label}
-                className="bg-shade p-7 lg:p-8 hover:bg-lift transition-colors"
-              >
-                <p className="font-mono text-[11px] text-lime tracking-[0.18em] uppercase">
-                  {signal.label}
-                </p>
-                <h3 className="mt-5 font-mono text-[19px] font-semibold tracking-tight text-ink">
-                  {signal.title}
-                </h3>
-                <p className="mt-3 text-[14px] text-dust leading-relaxed">{signal.body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* How it works */}
-        <div className="mx-auto max-w-7xl px-6 mt-16">
-          <div className="flex items-center gap-4">
-            <h2 className="font-mono text-[11px] text-fade tracking-[0.25em] uppercase">
-              §&nbsp;how_it_works
-            </h2>
-            <div className="h-px flex-1 bg-line" />
-            <span className="font-mono text-[11px] text-mute">3 steps</span>
-          </div>
-        </div>
-
-        <section aria-labelledby="how-it-works" className="mx-auto max-w-7xl px-6 pt-10 pb-24">
-          <p className="sr-only" id="how-it-works">
-            How StackPulse tracks GitHub releases and turns them into AI-summarised digests.
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[12.5px] text-dust">
+            <Badge tone="open">open</Badge>
+            <span>
+              <strong className="font-semibold text-ink">stackpulse</strong> wants to change how you
+              upgrade
+            </span>
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-line border border-line rounded-lg overflow-hidden">
-            {steps.map((s) => (
-              <div
-                key={s.n}
-                className="group relative bg-shade p-7 lg:p-8 hover:bg-lift transition-colors"
-              >
-                <div className="flex items-center justify-between font-mono text-[11px] text-fade">
-                  <span className="text-lime">{s.n}</span>
-                  <span>step</span>
-                </div>
-                <div className="mt-6 font-mono text-[12px] text-dust">
-                  <span className="text-fade">$ </span>
-                  <span className="text-lime">{s.cmd.split(' ')[0]}</span>{' '}
-                  <span>{s.cmd.split(' ').slice(1).join(' ')}</span>
-                </div>
-                <h3 className="mt-4 font-mono text-[20px] font-semibold tracking-tight text-ink lowercase">
-                  {s.title}
-                </h3>
-                <p className="mt-3 text-[14px] text-dust leading-relaxed">{s.body}</p>
-                <div className="mt-8 h-px w-8 bg-ruling group-hover:bg-lime group-hover:w-14 transition-all duration-300" />
-              </div>
-            ))}
-          </div>
-        </section>
 
-        {/* Tracked stacks */}
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex items-center gap-4">
-            <h2 className="font-mono text-[11px] text-fade tracking-[0.25em] uppercase">
-              §&nbsp;tracked_stacks
-            </h2>
-            <div className="h-px flex-1 bg-line" />
-            <span className="font-mono text-[11px] text-mute">+ custom repos</span>
-          </div>
-        </div>
-
-        <section aria-labelledby="tracked-stacks" className="mx-auto max-w-7xl px-6 pt-10 pb-24">
-          <p className="sr-only" id="tracked-stacks">
-            Frameworks and libraries StackPulse tracks out of the box, plus support for any custom
-            GitHub repository.
-          </p>
-          <div className="frame overflow-hidden">
-            <div className="frame-titlebar">
-              <span className="win-dots">
-                <span style={{ background: '#fb7185' }} />
-                <span style={{ background: '#fbbf24' }} />
-                <span style={{ background: '#34d399' }} />
+          <div className="mt-6 overflow-hidden rounded-xl border border-line bg-shade shadow-[var(--hero-shadow)]">
+            <div className="flex items-center justify-between gap-4 border-b border-line bg-lift px-4 py-2.5 font-mono text-[12px] text-dust">
+              <span className="text-ink">your-week.md</span>
+              <span>
+                <span className="text-emerald">+1</span> <span className="text-rose">-1</span>
               </span>
-              <span className="text-dust">~/registry.json</span>
-              <span className="ml-auto text-mute">90+ stacks in registry</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-line">
-              {trackedStacks.map(({ name, slug, icon: Icon }) => (
-                <Link
-                  key={name}
-                  href={`/stacks/${slug}`}
-                  className="bg-shade hover:bg-lift transition-colors px-4 py-5 flex items-center gap-3 group"
-                >
-                  <Icon
-                    aria-hidden="true"
-                    className="w-5 h-5 text-dust group-hover:text-lime transition-colors"
-                  />
-                  <span className="font-mono text-[13px] text-ink">{name}</span>
-                </Link>
-              ))}
-            </div>
-            <div className="px-4 py-3 border-t border-line font-mono text-[11px] text-fade flex items-center justify-between">
-              <span>missing one? add any github repo from onboarding</span>
-              <Link href="/sign-in" className="text-lime hover:underline">
-                add custom →
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA bar */}
-        <section className="mx-auto max-w-7xl px-6 pb-24">
-          <div className="frame relative overflow-hidden p-8 sm:p-12 text-center">
-            <div className="font-mono text-[11px] text-fade tracking-[0.25em] uppercase mb-4">
-              ready?
-            </div>
-            <h2 className="font-mono text-3xl sm:text-5xl font-bold tracking-tight text-ink">
-              stop missing upgrade work.
-            </h2>
-            <p className="mt-3 text-dust">
-              Free, open-source, no paywall. Sign in with GitHub and start tracking framework
-              releases, breaking changes, and deprecation notes in under a minute.
+            <p
+              aria-hidden="true"
+              className="grid grid-cols-[1.25em_minmax(0,1fr)] items-baseline bg-rose/[0.07] py-1.5 pr-4 font-mono text-[clamp(1.5rem,6.2vw,4.5rem)] font-bold leading-[1.12] tracking-[-0.045em] text-dust"
+            >
+              <span className="text-center font-normal text-rose">-</span>
+              <span className="relative w-fit">
+                Read every changelog.
+                <span className="absolute inset-x-0 top-[56%] h-[0.07em] origin-left bg-rose animate-diff-strike motion-reduce:animate-none" />
+              </span>
             </p>
-            <Link
-              href="/dashboard"
-              className="mt-7 inline-flex items-center gap-2 rounded-md bg-lime px-5 py-3 font-mono text-[13px] font-semibold text-void hover:bg-lime/85 transition-colors"
+            <h1
+              id="hero-title"
+              className="grid grid-cols-[1.25em_minmax(0,1fr)] items-baseline bg-emerald/[0.08] py-1.5 pr-4 font-mono text-[clamp(1.5rem,6.2vw,4.5rem)] font-bold leading-[1.12] tracking-[-0.045em] text-ink animate-diff-land motion-reduce:animate-none"
             >
-              <span className="text-void/60">$</span>
-              <span>./browse-public-feed</span>
-              <span aria-hidden="true">→</span>
-            </Link>
-            <Link
-              href="/sign-in"
-              className="ml-0 mt-3 inline-flex items-center gap-2 rounded-md border border-ruling bg-shade px-5 py-3 font-mono text-[13px] font-semibold text-ink hover:border-edge hover:bg-lift transition-colors sm:ml-3"
-            >
-              <span className="text-lime">$</span>
-              <span>./track-my-stack</span>
-            </Link>
-            <div className="mx-auto mt-8 max-w-xl text-left">
-              <DigestSignupForm source="landing" />
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ */}
-        <section className="mx-auto max-w-7xl px-6 pb-24" aria-labelledby="faq">
-          <div className="flex items-center gap-4">
-            <h2 id="faq" className="font-mono text-[11px] text-fade tracking-[0.25em] uppercase">
-              §&nbsp;faq
-            </h2>
-            <div className="h-px flex-1 bg-line" />
-            <span className="font-mono text-[11px] text-mute">searchable answers</span>
+              <span aria-hidden="true" className="text-center font-normal text-emerald">
+                +
+              </span>
+              <span>Review what breaks.</span>
+            </h1>
           </div>
 
-          <div className="mt-10 grid gap-px overflow-hidden rounded-lg border border-line bg-line">
-            {faqItems.map((item) => (
-              <article key={item.question} className="bg-shade p-6 sm:p-7">
-                <h3 className="font-mono text-[16px] font-semibold text-ink">{item.question}</h3>
-                <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-dust">
-                  {item.answer}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <footer className="border-t border-line">
-          <div className="mx-auto max-w-7xl px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px] text-fade">
-            <Logo size="sm" />
-            <div className="flex flex-col items-center gap-1.5 text-center">
-              <p className="tracking-widest">
-                {'// built for developers, by a '}
+          <div className="mt-9 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-end">
+            <div>
+              <p className="max-w-2xl text-[17px] leading-relaxed text-dust">
+                Track GitHub releases for the libraries you ship with. StackPulse reads every
+                changelog and leaves review comments on the ones that matter: breaking changes,
+                deprecations, and migration notes, each linked to its source.
+              </p>
+              <div className="mt-7 flex flex-wrap items-center gap-2.5">
+                <Link href="/sign-in" className={button.primary}>
+                  <GithubIcon aria-hidden="true" className="size-4" />
+                  Sign in with GitHub
+                </Link>
+                <Link href="/dashboard" className={button.secondary}>
+                  Browse the public feed
+                </Link>
                 <a
-                  href="https://daniel-tsx.dev"
+                  href="https://github.com/daniel-ctn/stack-pulse"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-lime hover:text-ink transition-colors"
+                  className={button.ghost}
                 >
-                  developer
+                  Source ↗
                 </a>
-              </p>
-              <p className="tracking-widest">
-                {'From the '}
-                <a
-                  href="https://eastbase.studio"
-                  target="_blank"
-                  rel="noopener"
-                  className="rounded-xs text-lime outline-none transition-colors hover:text-ink focus-visible:ring-1 focus-visible:ring-lime"
-                >
-                  Eastbase
-                </a>
-                {' studio'}
-              </p>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <Link href="/status" className="hover:text-ink transition-colors">
-                status
-              </Link>
-              <Link href="/privacy" className="hover:text-ink transition-colors">
-                privacy
-              </Link>
-              <Link href="/terms" className="hover:text-ink transition-colors">
-                terms
-              </Link>
-              <a
-                href="https://github.com/daniel-ctn/stack-pulse"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-ink transition-colors"
-              >
-                source ↗
-              </a>
+            <div className="rounded-xl border border-line bg-shade px-4 py-3.5">
+              <p className="mb-2.5 font-mono text-[12px] text-dust">checks</p>
+              {stats && stats.releases > 0 ? (
+                <Checks
+                  items={[
+                    { value: stats.releases.toLocaleString('en-US'), label: 'releases distilled' },
+                    {
+                      value: stats.breaking.toLocaleString('en-US'),
+                      label: 'with breaking changes',
+                    },
+                    {
+                      value: stats.stacks.toLocaleString('en-US'),
+                      label: 'stacks in the registry',
+                    },
+                  ]}
+                />
+              ) : (
+                <Checks
+                  items={[
+                    { label: 'source-linked summaries' },
+                    { label: 'breaking changes flagged' },
+                    { label: 'free and open source' },
+                  ]}
+                />
+              )}
             </div>
           </div>
-        </footer>
+        </section>
+
+        <div className="mx-auto mt-16 grid max-w-6xl gap-8 px-5 sm:mt-24 sm:px-6 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:items-start">
+          <aside aria-label="Files changed" className="min-w-0 lg:sticky lg:top-20">
+            <p className="mb-3 flex items-center gap-2 font-mono text-[12px] text-dust">
+              Files changed
+              <span className="rounded-full bg-lift px-2 text-ink">{files.length}</span>
+            </p>
+            <ol className="flex gap-1.5 overflow-x-auto pb-2 font-mono text-[12px] lg:flex-col lg:overflow-visible lg:pb-0">
+              {files.map((file) => (
+                <li key={file.id} className="shrink-0">
+                  <a
+                    href={`#${file.id}`}
+                    className="flex items-center justify-between gap-3 whitespace-nowrap rounded-md border border-line px-2.5 py-1.5 text-dust transition-colors hover:bg-lift hover:text-ink lg:whitespace-normal lg:border-transparent"
+                  >
+                    <span title={file.path}>{file.path.split('/').pop()}</span>
+                    <span className="shrink-0 text-emerald">{file.stat}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </aside>
+
+          <div className="grid min-w-0 gap-6">
+            <FileCard
+              id="feed"
+              path="releases/since-last-read.diff"
+              meta={<Badge tone="neutral">example</Badge>}
+              title="Your feed, as a review"
+            >
+              <DiffLines>
+                <DiffLine kind="hunk">@@ 5 releases since your last read @@</DiffLine>
+                {exampleReleases.map((release, i) => (
+                  <div key={release.stack}>
+                    <DiffLine kind="add" n={i + 1}>
+                      <span className="text-cyan">{release.stack}</span>
+                      <span className="text-dust">@</span>
+                      <span className="text-amber">{release.version}</span>
+                      {!release.comment && (
+                        <span className="ml-3 inline-block align-middle">
+                          <Badge tone={release.signal}>{release.signal}</Badge>
+                        </span>
+                      )}
+                    </DiffLine>
+                    {release.comment && (
+                      <ReviewComment
+                        tone={release.signal}
+                        label={release.signal}
+                        className="mx-4 mb-3 mt-1.5 sm:ml-[4rem]"
+                      >
+                        {release.comment}
+                      </ReviewComment>
+                    )}
+                  </div>
+                ))}
+              </DiffLines>
+            </FileCard>
+
+            <FileCard
+              id="how-it-works"
+              path="how-it-works.sh"
+              meta={<span className="text-emerald">+6</span>}
+              title="How it works"
+            >
+              <DiffLines>
+                {steps.map((step, i) => (
+                  <div key={step.title}>
+                    <DiffLine kind="add" n={i * 2 + 1}>
+                      <span className="text-dust">
+                        # {i + 1}. {step.title}
+                      </span>
+                    </DiffLine>
+                    <DiffLine kind="add" n={i * 2 + 2}>
+                      {step.body}
+                    </DiffLine>
+                  </div>
+                ))}
+              </DiffLines>
+            </FileCard>
+
+            <FileCard
+              id="signals"
+              path="review/signals.md"
+              meta="3 comments"
+              title="What every release is checked for"
+            >
+              <div className="grid gap-3 border-t border-line p-4 sm:p-5">
+                {releaseSignals.map((signal) => (
+                  <ReviewComment key={signal.label} tone={signal.tone} label={signal.label}>
+                    <strong className="font-semibold">{signal.title}</strong>{' '}
+                    <span className="text-dust">{signal.body}</span>
+                  </ReviewComment>
+                ))}
+              </div>
+              <ul className="grid gap-px border-t border-line bg-line sm:grid-cols-2">
+                {delivery.map((item) => (
+                  <li key={item.title} className="bg-shade px-5 py-4">
+                    <h3 className="font-mono text-[13px] font-semibold text-ink">{item.title}</h3>
+                    <p className="mt-1.5 text-[14px] leading-relaxed text-dust">{item.body}</p>
+                  </li>
+                ))}
+              </ul>
+            </FileCard>
+
+            <FileCard
+              id="registry"
+              path="registry.json"
+              meta="90+ stacks"
+              title="Stacks you can follow today"
+            >
+              <DiffLines>
+                <DiffLine n={1}>
+                  <span className="text-dust">[</span>
+                </DiffLine>
+                {trackedStacks.map((stack, i) => (
+                  <DiffLine key={stack.slug} kind="add" n={i + 2}>
+                    <Link
+                      href={`/stacks/${stack.slug}`}
+                      className="text-cyan underline-offset-4 hover:text-lime hover:underline"
+                    >
+                      &quot;{stack.name}&quot;
+                    </Link>
+                    <span className="text-dust">,</span>
+                  </DiffLine>
+                ))}
+                <DiffLine n={trackedStacks.length + 2}>
+                  <span className="text-dust">
+                    {'// …and more. Missing one? '}
+                    <Link href="/sign-in" className="text-lime underline-offset-4 hover:underline">
+                      Add any public GitHub repo
+                    </Link>
+                  </span>
+                </DiffLine>
+                <DiffLine n={trackedStacks.length + 3}>
+                  <span className="text-dust">]</span>
+                </DiffLine>
+              </DiffLines>
+            </FileCard>
+
+            <FileCard
+              id="mcp"
+              path=".mcp.json"
+              meta={<span className="text-emerald">+1</span>}
+              title="Bring releases into your editor"
+            >
+              <DiffLines>
+                <DiffLine kind="add" n={1}>
+                  {`{ "mcpServers": { "stackpulse": { "url": "${appUrl}/api/mcp/mcp" } } }`}
+                </DiffLine>
+              </DiffLines>
+              <p className="border-t border-line px-5 py-4 text-[14px] leading-relaxed text-dust">
+                Claude Code, Claude Desktop, Cursor, and other MCP clients can list stacks, read
+                AI-distilled releases, search changelogs, and build upgrade plans from your editor.
+              </p>
+            </FileCard>
+
+            <FileCard
+              id="pricing"
+              path="pricing.diff"
+              meta={<span className="text-emerald">+3</span>}
+              title="What it costs"
+            >
+              <DiffLines>
+                <DiffLine kind="add" n={1}>
+                  <span className="text-cyan">price</span>
+                  <span className="text-dust">: </span>
+                  <span className="font-semibold text-amber">$0</span>
+                </DiffLine>
+                <DiffLine kind="add" n={2}>
+                  <span className="text-dust"># free and open source, no paywall</span>
+                </DiffLine>
+                <DiffLine kind="add" n={3}>
+                  <span className="text-dust"># self-host it if you prefer</span>
+                </DiffLine>
+              </DiffLines>
+            </FileCard>
+
+            <FileCard id="faq" path="FAQ.md" meta={`${faqItems.length} threads`} title="Questions">
+              {faqItems.map((item) => (
+                <div
+                  key={item.question}
+                  className="grid gap-3 border-t border-line px-4 py-5 sm:px-5"
+                >
+                  <h3 className="font-mono text-[15px] font-semibold text-ink">{item.question}</h3>
+                  <ReviewComment action="answered">{item.answer}</ReviewComment>
+                </div>
+              ))}
+            </FileCard>
+
+            <MergeBox
+              id="merge"
+              title="Ready to merge into your week."
+              body="Free, open source, no paywall. Sign in with GitHub and start tracking framework releases, breaking changes, and deprecation notes in under a minute."
+            >
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                <Link href="/sign-in" className={button.primary}>
+                  <GithubIcon aria-hidden="true" className="size-4" />
+                  Sign in with GitHub
+                </Link>
+                <Link href="/dashboard" className={button.secondary}>
+                  Browse the public feed
+                </Link>
+              </div>
+              <div className="mt-7 max-w-xl border-t border-dashed border-ruling pt-6">
+                <DigestSignupForm source="landing" framed={false} />
+              </div>
+            </MergeBox>
+          </div>
+        </div>
       </main>
+
+      <SiteFooter />
     </div>
   )
 }

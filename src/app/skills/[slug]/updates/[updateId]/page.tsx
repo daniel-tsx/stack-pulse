@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { PageIntro } from '@/components/review/review-ui'
 import { SkillDate, SkillPanel, SkillShell } from '@/components/skills/skill-ui'
 import { getPublicSkillUpdate, skillAnalysisLabel } from '@/lib/public-skills'
 
@@ -37,20 +37,28 @@ export default async function SkillUpdatePage({ params }: Props) {
   }
   return (
     <SkillShell>
-      <Link href={`/skills/${slug}`} className="font-mono text-xs text-lime hover:underline">
-        ← {skill.name} history
-      </Link>
-      <h1 className="mt-6 break-words font-mono text-3xl font-semibold text-ink">
-        {skill.name}
-        <span className="text-lime">.</span>
-      </h1>
-      <p className="mt-4 font-mono text-sm text-lime">
-        {update.previousRevision.slice(0, 7)} → {update.newRevision.slice(0, 7)}
-      </p>
-      <p className="mt-3 text-xs text-dust">
-        {skillAnalysisLabel(update.analysisStatus)} · detected{' '}
-        <SkillDate value={update.createdAt} />
-      </p>
+      <PageIntro
+        path={[
+          { label: 'stackpulse', href: '/' },
+          { label: 'skills', href: '/skills' },
+          { label: skill.slug, href: `/skills/${slug}` },
+          { label: update.newRevision.slice(0, 7) },
+        ]}
+        state={{ label: skillAnalysisLabel(update.analysisStatus), tone: 'neutral' }}
+        title={
+          <>
+            {skill.name}{' '}
+            <span className="whitespace-nowrap text-dust">
+              {update.previousRevision.slice(0, 7)}…{update.newRevision.slice(0, 7)}
+            </span>
+          </>
+        }
+        lede={
+          <p className="font-mono text-[13px]">
+            Detected <SkillDate value={update.createdAt} />
+          </p>
+        }
+      />
       <SkillPanel title="assessment">
         {report ? (
           <>

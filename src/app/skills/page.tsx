@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { PageIntro } from '@/components/review/review-ui'
 import { SkillDate, SkillPanel, SkillShell, UpdateRows } from '@/components/skills/skill-ui'
 import { getPublicSkills, skillCheckLabel } from '@/lib/public-skills'
 
@@ -19,19 +20,13 @@ export default async function SkillsPage() {
   const { skills, updates } = await getPublicSkills()
   return (
     <SkillShell>
-      <p className="font-mono text-xs uppercase tracking-widest text-lime">
-        § agent skill intelligence · phase 1
-      </p>
-      <h1 className="mt-5 font-mono text-3xl font-semibold tracking-tight text-ink sm:text-5xl">
-        instructions change<span className="text-lime">.</span>
-        <br />
-        understand the impact.
-      </h1>
-      <p className="mt-5 max-w-2xl leading-relaxed text-dust">
-        Source changes, potential behavior shifts, and advisory update assessments for ten curated
-        skills. Compare immutable revisions before changing your pinned copy.
-      </p>
-      <div className="mt-8 grid grid-cols-3 gap-px overflow-hidden rounded border border-line bg-line font-mono">
+      <PageIntro
+        path={[{ label: 'stackpulse', href: '/' }, { label: 'skills' }]}
+        state={{ label: 'phase 1', tone: 'neutral' }}
+        title="Instructions change. Understand the impact."
+        lede="Source changes, potential behavior shifts, and advisory update assessments for ten curated skills. Compare immutable revisions before changing your pinned copy."
+      />
+      <div className="mt-8 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-line bg-line font-mono">
         {[
           ['curated', skills.length],
           ['baselined', skills.filter((s) => s.baselineRevision).length],

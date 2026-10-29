@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import { cacheLife } from 'next/cache'
-import Link from 'next/link'
-import { ArrowLeft01Icon } from 'hugeicons-react'
 
-import { Logo } from '@/components/logo'
-import { ThemeSwitcher } from '@/components/theme-switcher'
+import { Badge, CardNote, FileCard, PageIntro } from '@/components/review/review-ui'
+import { SiteFooter } from '@/components/site/site-footer'
+import { SiteHeader } from '@/components/site/site-header'
 import { getRecentFetchRuns, type FetchRunRow } from '@/lib/release-ingestion'
 
 export const metadata: Metadata = {
@@ -15,15 +14,18 @@ export const metadata: Metadata = {
 }
 
 const statusTone: Record<string, string> = {
-  completed: 'border-emerald/30 bg-emerald/10 text-emerald',
-  completed_with_errors: 'border-amber/30 bg-amber/10 text-amber',
-  failed: 'border-rose/30 bg-rose/10 text-rose',
-  running: 'border-cyan/30 bg-cyan/10 text-cyan',
+  completed: 'feature',
+  completed_with_errors: 'deprecation',
+  failed: 'breaking',
+  running: 'migration',
 }
 
 function formatDuration(run: FetchRunRow) {
   if (!run.finishedAt) return '—'
-  const seconds = Math.max(0, Math.round((run.finishedAt.getTime() - run.startedAt.getTime()) / 1000))
+  const seconds = Math.max(
+    0,
+    Math.round((run.finishedAt.getTime() - run.startedAt.getTime()) / 1000),
+  )
   return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }
 
@@ -49,128 +51,120 @@ export default async function StatusPage() {
 
   return (
     <div className="relative flex-1">
-      <header className="mx-auto max-w-6xl px-6 h-14 flex items-center justify-between relative z-20 border-b border-line/60">
-        <Link href="/" className="hover:opacity-80 transition-opacity">
-          <Logo size="md" />
-        </Link>
-        <nav className="flex items-center gap-2 sm:gap-4 font-mono text-[11px] text-fade">
-          <Link href="/" className="inline-flex items-center gap-1.5 hover:text-dust transition-colors">
-            <ArrowLeft01Icon className="w-3 h-3" />
-            cd ..
-          </Link>
-          <Link href="/stacks" className="hover:text-dust transition-colors">
-            stacks
-          </Link>
-          <ThemeSwitcher />
-        </nav>
-      </header>
+      <SiteHeader />
 
-      <main className="relative z-10 mx-auto max-w-6xl px-6 py-14">
-        <div className="font-mono text-[11px] text-fade tracking-[0.2em] uppercase flex items-center gap-3">
-          <span className="text-lime">#</span>
-          <span>status</span>
-        </div>
+      <main className="relative z-10 mx-auto max-w-6xl px-5 py-12 sm:px-6 sm:py-14">
+        <PageIntro
+          path={[{ label: 'stackpulse', href: '/' }, { label: 'status' }]}
+          state={
+            lastRun
+              ? {
+                  label: lastRun.status.replace(/_/g, ' '),
+                  tone: statusTone[lastRun.status] ?? 'neutral',
+                }
+              : undefined
+          }
+          title="Ingestion status"
+          lede="Every release fetch run, in the open: stacks scanned, releases inserted, and errors. The cron runs twice daily; custom repos also fetch the moment they are added."
+        />
 
-        <h1 className="mt-6 font-mono text-3xl font-bold tracking-tight text-ink sm:text-5xl">
-          ingestion status<span className="text-lime">.</span>
-        </h1>
-        <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-dust">
-          Every release fetch run, in the open: stacks scanned, releases inserted, and errors. The
-          cron runs twice daily; custom repos also fetch the moment they are added.
-        </p>
-
-        <div className="mt-8 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-3">
-          <div className="bg-shade px-4 py-3">
-            <div className="font-mono text-xl font-bold text-ink">
+        <dl className="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-3">
+          <div className="bg-shade px-5 py-4">
+            <dt className="font-mono text-[12px] text-dust">last fetch run</dt>
+            <dd className="mt-1 font-mono text-xl font-semibold text-ink">
               {lastRun ? formatRelative(lastRun.startedAt) : 'no runs yet'}
-            </div>
-            <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-fade">
-              last fetch run
-            </div>
+            </dd>
           </div>
-          <div className="bg-shade px-4 py-3">
-            <div className="font-mono text-xl font-bold text-ink">
-              {finished.length > 0 ? `${cleanRuns}/${finished.length}` : '—'}
-            </div>
-            <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-fade">
+          <div className="bg-shade px-5 py-4">
+            <dt className="font-mono text-[12px] text-dust">
               clean runs (last {finished.length || '0'})
-            </div>
+            </dt>
+            <dd className="mt-1 font-mono text-xl font-semibold text-ink">
+              {finished.length > 0 ? `${cleanRuns}/${finished.length}` : '—'}
+            </dd>
           </div>
-          <div className="bg-shade px-4 py-3">
-            <div className="font-mono text-xl font-bold text-lime">{insertedTotal}</div>
-            <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-fade">
-              releases inserted (shown runs)
-            </div>
+          <div className="bg-shade px-5 py-4">
+            <dt className="font-mono text-[12px] text-dust">releases inserted (shown runs)</dt>
+            <dd className="mt-1 font-mono text-xl font-semibold tabular-nums text-lime">
+              {insertedTotal}
+            </dd>
           </div>
-        </div>
+        </dl>
 
-        <div className="frame mt-10 overflow-hidden">
-          <div className="frame-titlebar">
-            <span className="win-dots">
-              <span style={{ background: '#fb7185' }} />
-              <span style={{ background: '#fbbf24' }} />
-              <span style={{ background: '#34d399' }} />
-            </span>
-            <span className="text-dust">~/var/log/fetch-runs.log</span>
-            <span className="ml-auto text-mute">last {runs.length} runs</span>
-          </div>
-
+        <FileCard path="var/log/fetch-runs.log" meta={`last ${runs.length} runs`} className="mt-8">
           {runs.length === 0 ? (
-            <div className="p-6 font-mono text-[13px] text-fade">
-              → no fetch runs recorded yet.
-            </div>
+            <CardNote title="No fetch runs recorded yet.">
+              The first run appears here after the next scheduled fetch at 00:00 or 12:00 UTC.
+            </CardNote>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full font-mono text-[12px]">
+              <table className="w-full font-mono text-[12.5px]">
+                <caption className="sr-only">Recent release fetch runs</caption>
                 <thead>
-                  <tr className="border-b border-line text-left text-[10.5px] uppercase tracking-[0.18em] text-fade">
-                    <th className="px-4 py-2.5 font-normal">started</th>
-                    <th className="px-4 py-2.5 font-normal">trigger</th>
-                    <th className="px-4 py-2.5 font-normal">status</th>
-                    <th className="px-4 py-2.5 font-normal text-right">scanned</th>
-                    <th className="px-4 py-2.5 font-normal text-right">inserted</th>
-                    <th className="px-4 py-2.5 font-normal text-right">errors</th>
-                    <th className="px-4 py-2.5 font-normal text-right">duration</th>
+                  <tr className="border-b border-line text-left text-[12px] text-dust">
+                    <th scope="col" className="px-4 py-2.5 font-normal">
+                      started
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 font-normal">
+                      trigger
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 font-normal">
+                      status
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right font-normal">
+                      scanned
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right font-normal">
+                      inserted
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right font-normal">
+                      errors
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right font-normal">
+                      duration
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {runs.map((run) => (
-                    <tr key={run.id} className="hover:bg-lift transition-colors">
-                      <td className="px-4 py-2.5 whitespace-nowrap text-dust">
+                    <tr key={run.id} className="transition-colors hover:bg-lift">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-dust">
                         {run.startedAt.toISOString().slice(0, 16).replace('T', ' ')} utc
                       </td>
                       <td className="px-4 py-2.5 text-cyan">{run.trigger}</td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={`inline-flex items-center rounded-[3px] border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-widest ${
-                            statusTone[run.status] ?? 'border-fade/20 bg-dust/10 text-fade'
-                          }`}
-                        >
+                      <td className="whitespace-nowrap px-4 py-2.5">
+                        <Badge tone={statusTone[run.status] ?? 'neutral'}>
                           {run.status.replace(/_/g, ' ')}
-                        </span>
+                        </Badge>
                       </td>
-                      <td className="px-4 py-2.5 text-right text-dust">{run.technologiesScanned}</td>
-                      <td className="px-4 py-2.5 text-right text-ink">{run.releasesInserted}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-dust">
+                        {run.technologiesScanned}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-ink">
+                        {run.releasesInserted}
+                      </td>
                       <td
-                        className={`px-4 py-2.5 text-right ${run.errors > 0 ? 'text-rose' : 'text-fade'}`}
+                        className={`px-4 py-2.5 text-right tabular-nums ${run.errors > 0 ? 'text-rose' : 'text-dust'}`}
                       >
                         {run.errors}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-fade">{formatDuration(run)}</td>
+                      <td className="px-4 py-2.5 text-right text-dust">{formatDuration(run)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
+        </FileCard>
 
-        <p className="mt-6 font-mono text-[11.5px] text-fade">
-          {'// '}this page revalidates every 5 minutes. errors here mean a stack&apos;s GitHub fetch
+        <p className="mt-6 font-mono text-[12px] leading-relaxed text-dust">
+          {'// '}This page revalidates every 5 minutes. Errors here mean a stack&apos;s GitHub fetch
           or AI summarisation failed for that run. Later runs check the latest five releases;
           older gaps may need recovery.
         </p>
       </main>
+
+      <SiteFooter />
     </div>
   )
 }

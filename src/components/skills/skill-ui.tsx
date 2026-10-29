@@ -1,44 +1,27 @@
 import Link from 'next/link'
-import { Logo } from '@/components/logo'
-import { ThemeSwitcher } from '@/components/theme-switcher'
+import { FileCard } from '@/components/review/review-ui'
+import { SiteFooter } from '@/components/site/site-footer'
+import { SiteHeader } from '@/components/site/site-header'
 import { skillAnalysisLabel } from '@/lib/public-skills'
 import type { SkillReport } from '@/lib/skill-analysis'
 
 export function SkillShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex-1">
-      <header className="relative z-20 mx-auto flex min-h-14 max-w-6xl flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-6">
-        <Link href="/" aria-label="StackPulse home">
-          <Logo size="md" />
-        </Link>
-        <nav
-          aria-label="Public navigation"
-          className="flex items-center gap-4 font-mono text-xs text-dust"
-        >
-          <Link href="/stacks" className="hover:text-lime">
-            stacks
-          </Link>
-          <Link href="/skills" className="text-lime">
-            skills
-          </Link>
-          <ThemeSwitcher />
-        </nav>
-      </header>
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+      <SiteHeader active="skills" />
+      <main className="relative z-10 mx-auto max-w-6xl px-5 py-12 sm:px-6 sm:py-14">
         {children}
       </main>
+      <SiteFooter />
     </div>
   )
 }
 
 export function SkillPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="frame mt-8 min-w-0 overflow-hidden">
-      <div className="border-b border-line bg-shade px-5 py-3 font-mono text-xs text-dust">
-        ~/skills/{title}
-      </div>
+    <FileCard path={`skills/${title}`} className="mt-8">
       <div className="space-y-4 break-words p-5 text-sm leading-relaxed text-dust">{children}</div>
-    </section>
+    </FileCard>
   )
 }
 
